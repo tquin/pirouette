@@ -1,0 +1,11 @@
+[package]
+name = "pirouette"
+description = "A log/backup rotation tool."
+version = "0.1.0"
+edition = "2024"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1.0.218", features = ["derive"] }
+toml = "0.8.20"

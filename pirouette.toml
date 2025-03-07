@@ -1,0 +1,6 @@
+
+[source]
+path = "/tmp/pirouette_source.txt"
+
+[target]
+path = "/tmp/pirouette_target"
