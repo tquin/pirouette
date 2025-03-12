@@ -61,8 +61,9 @@ fn validate_config_source(source: &ConfigPath) -> Result<()> {
 }
 
 fn validate_config_target(target: &ConfigPath) -> Result<()> {
-    // A `target` is only valid if it is a path to a directory
+    // A valid `target` is only a directory
 
+    // Path doesn't already exist, but we can create it ourselves
     if !target.path.exists() {
         fs::create_dir_all(&target.path)
             .context("failed to create target directory")?;
@@ -76,9 +77,21 @@ fn validate_config_target(target: &ConfigPath) -> Result<()> {
     Ok(())
 }
 
+impl ConfigRetention {
+    fn at_least_one_populated_field(&self) -> bool {
+        let fields = [&self.hours, &self.days, &self.weeks, &self.months, &self.years];
+        fields.iter().any(|&field| field.is_some())
+    }
+}
+
 #[allow(unused)]
 fn validate_config_retention(retention: &ConfigRetention) -> Result<()> {
-    // todo
+    // A valid `retention` has at least one non-None field
+    match &retention.at_least_one_populated_field() {
+        true => (),
+        false => anyhow::bail!("no retention period was specified"),
+    }
+
     Ok(())
 }
 

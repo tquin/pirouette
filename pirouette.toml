@@ -1,9 +1,13 @@
 
 [source]
 path = "/tmp/pirouette_source.txt"
+# todo: how to handle dirs? deep copy, shallow copy, only latest file?
+# glob include/exclude patterns would be nice at some point too.
 
 [target]
 path = "/tmp/pirouette_target"
+# todo: the format at the target could be one of:
+# directory structure, tarball, single file
 
 [retention]
 days = 7
