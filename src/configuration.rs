@@ -3,24 +3,29 @@ use std::path;
 use std::fs;
 use serde::Deserialize;
 use toml;
+use anyhow::{Context, Result};
+use anyhow;
 
 #[derive(Debug, Deserialize)]
-#[allow(unused)]
 pub struct PirouetteConfig {
-    source: ConfigSource,
-    target: ConfigTarget,
+    source: ConfigPath,
+    target: ConfigPath,
+    retention: ConfigRetention,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ConfigPath {
+    path: path::PathBuf,
 }
 
 #[derive(Debug, Deserialize)]
 #[allow(unused)]
-pub struct ConfigSource {
-    path: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[allow(unused)]
-pub struct ConfigTarget {
-    path: String,
+pub struct ConfigRetention {
+    hours: Option<u32>,
+    days: Option<u32>,
+    weeks: Option<u32>,
+    months: Option<u32>,
+    years: Option<u32>,
 }
 
 fn get_config_file_path() -> path::PathBuf {
@@ -44,13 +49,62 @@ fn get_config_file_path_default() -> path::PathBuf {
     return config_file_path;
 }
 
-// TODO: validate the file paths we get exist on the system (or create them, for target)
-pub fn parse_config() -> PirouetteConfig {
-    let config_file_str = fs::read_to_string(get_config_file_path())
-        .expect("Failed to read configuration file contents");
+fn validate_config_source(source: &ConfigPath) -> Result<()> {
+    // A valid `source` can be any file or directory
 
+    // Bad input: source doesn't exist
+    if !source.path.exists() {
+        anyhow::bail!("source path does not exist");
+    }
+
+    Ok(())
+}
+
+fn validate_config_target(target: &ConfigPath) -> Result<()> {
+    // A `target` is only valid if it is a path to a directory
+
+    if !target.path.exists() {
+        fs::create_dir_all(&target.path)
+            .context("failed to create target directory")?;
+    }
+
+    // Bad input: path exists, but it's a file, not a dir
+    if target.path.exists() && !target.path.is_dir() {
+        anyhow::bail!("target path is a file, not a directory");
+    }
+
+    Ok(())
+}
+
+#[allow(unused)]
+fn validate_config_retention(retention: &ConfigRetention) -> Result<()> {
+    // todo
+    Ok(())
+}
+
+fn validate_config(config_file_toml: &PirouetteConfig) -> Result<()> {
+    // These may panic on bad user input
+    validate_config_source(&config_file_toml.source)
+        .context("failed to validate source")?;
+    validate_config_target(&config_file_toml.target)
+        .context("failed to validate target")?;
+    validate_config_retention(&config_file_toml.retention)
+        .context("failed to validate retention")?;
+
+    Ok(())
+}
+
+pub fn parse_config() -> Result<PirouetteConfig> {
+    // Read configuration file as string
+    let config_file_path = get_config_file_path();
+    let config_file_str = fs::read_to_string(&config_file_path)
+        .with_context(|| format!("failed to read config file: {}", config_file_path.display()))?;
+
+    // Parse the toml into a struct
     let config_file_toml: PirouetteConfig = toml::from_str(&config_file_str)
-        .expect("Failed to deserialize config file");
+        .with_context(|| format!("failed to parse config file: {}", config_file_path.display()))?;
 
-    return config_file_toml;
+    // Validate the format, create paths if required, etc.
+    validate_config(&config_file_toml)?;
+    Ok(config_file_toml)
 }

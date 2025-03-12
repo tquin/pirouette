@@ -4,3 +4,7 @@ path = "/tmp/pirouette_source.txt"
 
 [target]
 path = "/tmp/pirouette_target"
+
+[retention]
+days = 7
+weeks = 4
