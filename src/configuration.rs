@@ -1,4 +1,5 @@
 use std::env;
+use std::hash::Hash;
 use std::path;
 use std::fs;
 use std::collections::HashMap;
@@ -8,15 +9,31 @@ use anyhow::{Context, Result};
 use anyhow;
 
 #[derive(Debug, Deserialize)]
+struct ConfigRaw {
+    source: ConfigPath,
+    target: ConfigPath,
+    retention: HashMap<String, u32>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct Config {
     pub source: ConfigPath,
     pub target: ConfigPath,
-    pub retention: HashMap<String, u32>,
+    pub retention: HashMap<ConfigRetentionKind, u32>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ConfigPath {
     pub path: path::PathBuf,
+}
+
+#[derive(PartialEq, Eq, Hash, Debug, Deserialize)]
+pub enum ConfigRetentionKind {
+    Hours,
+    Days,
+    Weeks,
+    Months,
+    Years,
 }
 
 /*
@@ -81,6 +98,27 @@ fn validate_config_retention(retention: &HashMap<String, u32>) -> Result<()> {
     Ok(())
 }
 
+/*
+    Data type conversion
+*/
+
+fn convert_config_retention(retention: &HashMap<String, u32>) -> HashMap<ConfigRetentionKind, u32> {
+    let mut validated_retention = HashMap::new();
+
+    for (period, value) in retention {
+        match period.as_ref() {
+            "hours" => {validated_retention.insert(ConfigRetentionKind::Hours, *value);},
+            "days" => {validated_retention.insert(ConfigRetentionKind::Days, *value);},
+            "weeks" => {validated_retention.insert(ConfigRetentionKind::Weeks, *value);},
+            "months" => {validated_retention.insert(ConfigRetentionKind::Months, *value);},
+            "years" => {validated_retention.insert(ConfigRetentionKind::Years, *value);},
+            &_ => (),
+        }
+    }
+
+    validated_retention
+}
+
 pub fn parse_config() -> Result<Config> {
     // Read configuration file as string
     let config_file_path = get_config_file_path();
@@ -88,16 +126,20 @@ pub fn parse_config() -> Result<Config> {
         .with_context(|| format!("failed to read config file: {}", config_file_path.display()))?;
 
     // Parse the toml into a struct
-    let config: Config = toml::from_str(&config_file_str)
+    let raw_config: ConfigRaw = toml::from_str(&config_file_str)
         .with_context(|| format!("failed to parse config file: {}", config_file_path.display()))?;
 
     // Panic if we have any invalid input
-    validate_config_source(&config.source)
+    validate_config_source(&raw_config.source)
         .context("failed to validate source")?;
-    validate_config_target(&config.target)
+    validate_config_target(&raw_config.target)
         .context("failed to validate target")?;
-    validate_config_retention(&config.retention)
+    validate_config_retention(&raw_config.retention)
         .context("failed to validate retention")?;
 
-    Ok(config)
+    Ok(Config {
+        source: raw_config.source,
+        target: raw_config.target,
+        retention: convert_config_retention(&raw_config.retention),
+    })
 }
