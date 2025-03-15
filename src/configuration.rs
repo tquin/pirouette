@@ -2,6 +2,7 @@ use std::env;
 use std::hash::Hash;
 use std::path;
 use std::fs;
+use std::fmt;
 use std::collections::HashMap;
 use serde::Deserialize;
 use toml;
@@ -34,6 +35,19 @@ pub enum ConfigRetentionKind {
     Weeks,
     Months,
     Years,
+}
+
+
+impl fmt::Display for ConfigRetentionKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ConfigRetentionKind::Hours => write!(f, "hours"),
+            ConfigRetentionKind::Days => write!(f, "days"),
+            ConfigRetentionKind::Weeks => write!(f, "weeks"),
+            ConfigRetentionKind::Months => write!(f, "months"),
+            ConfigRetentionKind::Years => write!(f, "years"),
+        }
+    }
 }
 
 /*
