@@ -1,6 +1,6 @@
 use anyhow::{Result};
 
-use crate::configuration::PirouetteConfig;
+use crate::configuration::Config;
 mod configuration;
 
 fn main() -> Result<()> {
@@ -12,7 +12,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn check_target_state(_config: &PirouetteConfig) {
+fn check_target_state(_config: &Config) {
     // let x = config.retention.all_retention_fields().into_iter();
     // println!("{:#?}", x);
 }
