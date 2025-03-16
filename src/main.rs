@@ -2,6 +2,8 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::time;
 use std::path::PathBuf;
+use std::env;
+use rand::Rng;
 
 use configuration::ConfigRetentionKind;
 use configuration::Config;
@@ -14,8 +16,20 @@ fn main() -> Result<()> {
     let rotation_targets = get_rotation_targets(&config)?;
     println!("rotation_targets {:#?}", rotation_targets);
 
+    if !rotation_targets.is_empty() {
+        // snapshot source
+        create_new_snapshot(&config)?;
+        // copy snapshot to targets
+    }
+
+    // clean up old snaps
+
     Ok(())
 }
+
+/*
+    Check current target state
+*/
 
 fn get_rotation_targets(config: &Config) -> Result<Vec<&ConfigRetentionKind>> {
     let mut rotation_targets = vec![];
@@ -99,4 +113,44 @@ fn has_target_file_aged_out(retention_kind: &ConfigRetentionKind, file: &fs::Dir
     } else {
         return Ok(false);
     }
+}
+
+/*
+    Create source snapshot
+*/
+
+fn create_new_snapshot(config: &Config) -> Result<()> {
+    let mut temp_dir = env::temp_dir();
+    temp_dir.push(format!("pirouette_{}", get_random_string(5)));
+
+    fs::create_dir_all(&temp_dir)
+        .with_context(|| format!("failed to create directory {}", temp_dir.display()))?;
+    
+    println!("temp_dir: {:?}", temp_dir);
+
+    match config.source.path.is_dir() {
+        true => create_new_snapshot_dir(),
+        false => create_new_snapshot_file(),
+    }
+
+    Ok(())
+
+}
+
+fn get_random_string(length: u8) -> String {
+    let mut rng = rand::rng();
+    let s: String = (&mut rng).sample_iter(rand::distr::Alphanumeric)
+        .take(length.into())
+        .map(char::from)
+        .collect();
+
+    s
+}
+
+fn create_new_snapshot_dir() {
+    todo!("todo create_new_snapshot_dir");
+}
+
+fn create_new_snapshot_file() {
+    todo!("todo create_new_snapshot_file");
 }
