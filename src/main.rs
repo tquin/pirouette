@@ -2,8 +2,7 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::time;
 use std::path::PathBuf;
-use std::env;
-use rand::Rng;
+use chrono;
 
 use configuration::ConfigRetentionKind;
 use configuration::Config;
@@ -11,19 +10,17 @@ mod configuration;
 
 fn main() -> Result<()> {
     let config = configuration::parse_config()?;
-    println!("config {:#?}", config);
 
     let rotation_targets = get_rotation_targets(&config)?;
-    println!("rotation_targets {:#?}", rotation_targets);
 
     if !rotation_targets.is_empty() {
-        // snapshot source
-        create_new_snapshot(&config)?;
-        // copy snapshot to targets
+        for retention_kind in rotation_targets {
+            copy_snapshot(&config, retention_kind)
+                .with_context(|| format!("failed to create snapshot for {}", retention_kind))?;
+        }
     }
 
-    // clean up old snaps
-
+    // todo: clean up old snaps
     Ok(())
 }
 
@@ -45,15 +42,15 @@ fn get_rotation_targets(config: &Config) -> Result<Vec<&ConfigRetentionKind>> {
                 .with_context(|| format!("failed to create directory {}", retention_path.display()))?;
         }
 
-        let newest_file = get_newest_file(&retention_path);
-        match newest_file {
-            // If there's existing files, check if they're old enough to need rotation
-            Some(file) => match has_target_file_aged_out(&retention_period, &file)? {
+        let newest_child = get_newest_directory_child(&retention_path);
+        match newest_child {
+            // If there's existing snapshots, check if they're old enough to need rotation
+            Some(file) => match has_target_snapshot_aged_out(&retention_period, &file)? {
                 true => rotation_targets.push(retention_period),
                 false => (),
             },
 
-            // If the directory contains no files, we always need to rotate
+            // If there's no previous snapshots, we always need to rotate
             None => rotation_targets.push(retention_period),
         }
     }
@@ -61,20 +58,20 @@ fn get_rotation_targets(config: &Config) -> Result<Vec<&ConfigRetentionKind>> {
     Ok(rotation_targets)
 }
 
-fn get_newest_file(directory: &PathBuf) -> Option<fs::DirEntry> {
+fn get_newest_directory_child(directory: &PathBuf) -> Option<fs::DirEntry> {
     let dir_entries = match fs::read_dir(directory) {
         Ok(entries) => entries,
         Err(_) => return None, 
     };
 
-    let dir_files = dir_entries.flatten().filter(|item| 
+    let dir_items = dir_entries.flatten().filter(|item| 
         match item.metadata() {
-            Ok(item_metadata) => item_metadata.is_file(),
+            Ok(item_metadata) => item_metadata.is_dir(),
             Err(_) => false,
         }
     );
 
-    let newest_file = dir_files.max_by_key(|item|
+    let newest_child = dir_items.max_by_key(|item|
         match item.metadata() {
             Ok(item_metadata) => match item_metadata.created() {
                 Ok(time) => time,
@@ -84,10 +81,10 @@ fn get_newest_file(directory: &PathBuf) -> Option<fs::DirEntry> {
         }
     );
 
-    newest_file
+    newest_child
 }
 
-fn has_target_file_aged_out(retention_kind: &ConfigRetentionKind, file: &fs::DirEntry) -> Result<bool> {
+fn has_target_snapshot_aged_out(retention_kind: &ConfigRetentionKind, file: &fs::DirEntry) -> Result<bool> {
     let file_metadata = match file.metadata() {
         Err(e) => anyhow::bail!(format!("Failed to read metadata for file {:?}: {}", file, e)),
         Ok(file_metadata) => file_metadata,
@@ -119,38 +116,44 @@ fn has_target_file_aged_out(retention_kind: &ConfigRetentionKind, file: &fs::Dir
     Create source snapshot
 */
 
-fn create_new_snapshot(config: &Config) -> Result<()> {
-    let mut temp_dir = env::temp_dir();
-    temp_dir.push(format!("pirouette_{}", get_random_string(5)));
-
-    fs::create_dir_all(&temp_dir)
-        .with_context(|| format!("failed to create directory {}", temp_dir.display()))?;
-    
-    println!("temp_dir: {:?}", temp_dir);
-
+fn copy_snapshot(config: &Config, retention_kind: &ConfigRetentionKind) -> Result<()> {
     match config.source.path.is_dir() {
-        true => create_new_snapshot_dir(),
-        false => create_new_snapshot_file(),
+        true => copy_snapshot_dir(config, retention_kind)?,
+        false => copy_snapshot_file(config, retention_kind)?,
     }
 
     Ok(())
-
 }
 
-fn get_random_string(length: u8) -> String {
-    let mut rng = rand::rng();
-    let s: String = (&mut rng).sample_iter(rand::distr::Alphanumeric)
-        .take(length.into())
-        .map(char::from)
-        .collect();
-
-    s
-}
-
-fn create_new_snapshot_dir() {
+fn copy_snapshot_dir(config: &Config, retention_kind: &ConfigRetentionKind) -> Result<()> {
     todo!("todo create_new_snapshot_dir");
+
+    Ok(())
 }
 
-fn create_new_snapshot_file() {
-    todo!("todo create_new_snapshot_file");
+fn copy_snapshot_file(config: &Config, retention_kind: &ConfigRetentionKind) -> Result<()> {
+    let retention_dir_path: PathBuf = [
+        config.target.path.display().to_string(),
+        retention_kind.to_string(),
+        format_snapshot_dir_name()
+        ].iter().collect();
+
+    fs::create_dir_all(&retention_dir_path)
+        .with_context(|| format!("failed to create directory {}", retention_dir_path.display()))?;
+
+    let retention_file_path: PathBuf = [
+        retention_dir_path,
+        config.source.path.file_name().unwrap().into()
+    ].iter().collect();
+
+    fs::copy(&config.source.path, retention_file_path)
+        .with_context(|| format!("failed to copy file {}", config.source.path.display()))?;
+
+    Ok(())
+}
+
+fn format_snapshot_dir_name() -> String {
+    chrono::Local::now()
+        .format("%Y-%m-%dT%H:%M")
+        .to_string()
 }
