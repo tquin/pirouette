@@ -11,3 +11,4 @@ anyhow = "1.0.97"
 chrono = "0.4.40"
 serde = { version = "1.0.218", features = ["derive"] }
 toml = "0.8.20"
+uu_cp = "0.0.30"

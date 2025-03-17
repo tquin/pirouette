@@ -117,21 +117,6 @@ fn has_target_snapshot_aged_out(retention_kind: &ConfigRetentionKind, file: &fs:
 */
 
 fn copy_snapshot(config: &Config, retention_kind: &ConfigRetentionKind) -> Result<()> {
-    match config.source.path.is_dir() {
-        true => copy_snapshot_dir(config, retention_kind)?,
-        false => copy_snapshot_file(config, retention_kind)?,
-    }
-
-    Ok(())
-}
-
-fn copy_snapshot_dir(config: &Config, retention_kind: &ConfigRetentionKind) -> Result<()> {
-    todo!("todo create_new_snapshot_dir");
-
-    Ok(())
-}
-
-fn copy_snapshot_file(config: &Config, retention_kind: &ConfigRetentionKind) -> Result<()> {
     let retention_dir_path: PathBuf = [
         config.target.path.display().to_string(),
         retention_kind.to_string(),
@@ -143,9 +128,49 @@ fn copy_snapshot_file(config: &Config, retention_kind: &ConfigRetentionKind) -> 
 
     let retention_file_path: PathBuf = [
         retention_dir_path,
-        config.source.path.file_name().unwrap().into()
+        config.source.path.file_name().unwrap().into(),
     ].iter().collect();
 
+    match config.source.path.is_file() {
+        true => copy_snapshot_file(config, &retention_file_path)?,
+        false => copy_snapshot_dir(config, &retention_file_path)?,
+    }
+
+    Ok(())
+}
+
+fn copy_snapshot_dir(config: &Config, retention_file_path: &PathBuf) -> Result<()> {
+    let options = uu_cp::Options {
+        attributes: uu_cp::Attributes::NONE, 
+        attributes_only: false,
+        copy_contents: false,
+        cli_dereference: false,
+        copy_mode: uu_cp::CopyMode::Copy,
+        dereference: true,
+        one_file_system: false,
+        parents: false,
+        update: uu_cp::UpdateMode::ReplaceAll,
+        debug: false,
+        verbose: false,
+        strip_trailing_slashes: false,
+        reflink_mode: uu_cp::ReflinkMode::Auto,
+        sparse_mode: uu_cp::SparseMode::Auto,
+        backup: uu_cp::BackupMode::NoBackup,
+        backup_suffix: "~".to_owned(),
+        no_target_dir: false,
+        overwrite: uu_cp::OverwriteMode::Clobber(uu_cp::ClobberMode::Standard),
+        recursive: true,
+        target_dir: None,
+        progress_bar: false
+    };
+
+    uu_cp::copy(&[config.source.path.clone()],  &retention_file_path, &options)
+        .with_context(|| format!("failed to copy directory {}", config.source.path.display()))?;
+
+    Ok(())
+}
+
+fn copy_snapshot_file(config: &Config, retention_file_path: &PathBuf) -> Result<()> {
     fs::copy(&config.source.path, retention_file_path)
         .with_context(|| format!("failed to copy file {}", config.source.path.display()))?;
 
