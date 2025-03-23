@@ -45,7 +45,7 @@ fn get_rotation_targets(config: &Config) -> Result<Vec<&ConfigRetentionKind>> {
         let newest_child = get_newest_directory_child(&retention_path);
         match newest_child {
             // If there's existing snapshots, check if they're old enough to need rotation
-            Some(file) => match has_target_snapshot_aged_out(&retention_period, &file)? {
+            Some(snapshot) => match has_target_snapshot_aged_out(&retention_period, &snapshot)? {
                 true => rotation_targets.push(retention_period),
                 false => (),
             },
@@ -84,18 +84,18 @@ fn get_newest_directory_child(directory: &PathBuf) -> Option<fs::DirEntry> {
     newest_child
 }
 
-fn has_target_snapshot_aged_out(retention_kind: &ConfigRetentionKind, file: &fs::DirEntry) -> Result<bool> {
-    let file_metadata = match file.metadata() {
-        Err(e) => anyhow::bail!(format!("Failed to read metadata for file {:?}: {}", file, e)),
-        Ok(file_metadata) => file_metadata,
+fn has_target_snapshot_aged_out(retention_kind: &ConfigRetentionKind, snapshot: &fs::DirEntry) -> Result<bool> {
+    let snapshot_metadata = match snapshot.metadata() {
+        Err(e) => anyhow::bail!(format!("Failed to read metadata for snapshot {:?}: {}", snapshot, e)),
+        Ok(snapshot_metadata) => snapshot_metadata,
     };
-    let file_time = match file_metadata.created() {
-        Err(e) => anyhow::bail!(format!("Failed to read metadata for file {:?}: {}", file, e)),
-        Ok(file_time) => file_time,
+    let snapshot_time = match snapshot_metadata.created() {
+        Err(e) => anyhow::bail!(format!("Failed to read metadata for snapshot {:?}: {}", snapshot, e)),
+        Ok(snapshot_time) => snapshot_time,
     };
 
-    let file_age = time::SystemTime::now().duration_since(file_time)
-        .context("Failed to calculate file age")?;
+    let snapshot_age = time::SystemTime::now().duration_since(snapshot_time)
+        .context("Failed to calculate snapshot age")?;
 
     let age_threshold = match retention_kind {
         ConfigRetentionKind::Hours => 60 * 60,
@@ -105,7 +105,7 @@ fn has_target_snapshot_aged_out(retention_kind: &ConfigRetentionKind, file: &fs:
         ConfigRetentionKind::Years => 365 * 24 * 60 * 60,
     };
 
-    if file_age.as_secs() >= age_threshold {
+    if snapshot_age.as_secs() >= age_threshold {
         return Ok(true);
     } else {
         return Ok(false);
@@ -120,7 +120,7 @@ fn copy_snapshot(config: &Config, retention_kind: &ConfigRetentionKind) -> Resul
     let retention_dir_path: PathBuf = [
         config.target.path.display().to_string(),
         retention_kind.to_string(),
-        format_snapshot_dir_name()
+        format_snapshot_name()
         ].iter().collect();
 
     fs::create_dir_all(&retention_dir_path)
@@ -177,7 +177,7 @@ fn copy_snapshot_file(config: &Config, retention_file_path: &PathBuf) -> Result<
     Ok(())
 }
 
-fn format_snapshot_dir_name() -> String {
+fn format_snapshot_name() -> String {
     chrono::Local::now()
         .format("%Y-%m-%dT%H:%M")
         .to_string()
