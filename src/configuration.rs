@@ -14,11 +14,24 @@ pub struct Config {
     pub source: ConfigPath,
     pub target: ConfigPath,
     pub retention: HashMap<ConfigRetentionKind, u32>,
+    pub options: Option<ConfigOpts>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ConfigPath {
     pub path: path::PathBuf,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ConfigOpts {
+    pub output_format: Option<ConfigOptsOutputFormat>,
+}
+
+#[derive(Debug, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum ConfigOptsOutputFormat {
+    Directory,
+    Tarball
 }
 
 #[derive(PartialEq, Eq, Hash, Debug, Deserialize)]
@@ -30,7 +43,6 @@ pub enum ConfigRetentionKind {
     Months,
     Years,
 }
-
 
 impl fmt::Display for ConfigRetentionKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

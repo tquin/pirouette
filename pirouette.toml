@@ -1,14 +1,16 @@
 
 [source]
-path = "/tmp/pirouette_source.txt"
-# todo: how to handle dirs? deep copy, shallow copy, only latest file?
-# glob include/exclude patterns would be nice at some point too.
+path = "./sample/source.txt"
 
 [target]
-path = "/tmp/pirouette_target"
-# todo: the format at the target could be one of:
-# directory structure, tarball, single file
+path = "./sample/target"
 
 [retention]
 days = 7
 weeks = 4
+
+[options]
+output_format = "tarball"
+# src: deep copy? shallow? latest file only?
+# glob include/exclude patterns would be nice at some point too.
+# custom-defined retention periods would be nice

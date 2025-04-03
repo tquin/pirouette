@@ -9,6 +9,8 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.97"
 chrono = "0.4.40"
+flate2 = "1.1.0"
 serde = { version = "1.0.218", features = ["derive"] }
+tar = "0.4.44"
 toml = "0.8.20"
 uu_cp = "0.0.30"
