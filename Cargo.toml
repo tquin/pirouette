@@ -1,10 +1,13 @@
 [package]
 name = "pirouette"
 description = "A log/backup rotation tool."
-version = "0.1.0"
+version = "0.1.0-alpha"
 edition = "2024"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "MIT"
+repository = "https://github.com/tquin/pirouette"
+readme = "README.md"
+keywords = ["backup", "rotate", "log"]
+categories = ["command-line-utilities", "filesystem"]
 
 [dependencies]
 anyhow = "1.0.97"
