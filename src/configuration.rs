@@ -62,8 +62,12 @@ impl fmt::Display for ConfigRetentionKind {
 
 fn get_config_file_path() -> path::PathBuf {
     let config_file_path = match env::var("PIROUETTE_CONFIG_FILE") {
-        // Read from envvar path if provided
-        Ok(config_file_path) => path::PathBuf::from(config_file_path),
+        Ok(env_var) => match env_var.as_str() {
+            // Read from default path if envvar is set, but empty
+            "" => get_config_file_path_default(),
+            // Read from envvar path if provided
+            _ => path::PathBuf::from(env_var),
+        },
         // Read from default path if envvar is unset
         Err(_) => get_config_file_path_default(),
     };
@@ -137,4 +141,90 @@ pub fn parse_config() -> Result<Config> {
         .context("failed to validate retention")?;
 
     Ok(config)
+}
+
+/*
+    Unit tests
+*/
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::Rng;
+    use temp_env;
+
+    #[test]
+    fn get_config_file_from_envvar() {
+        // Temporarily sets the var, reset to original state at test end
+        temp_env::with_vars([
+            ("PIROUETTE_CONFIG_FILE", Some("/test/path.toml")),
+        ], || {
+                let expected_path = path::PathBuf::from("/test/path.toml");
+                let actual_path = get_config_file_path();
+                assert_eq!(actual_path, expected_path);
+            }
+        )
+    }
+
+    #[test]
+    fn get_config_file_with_unset_envvar() {
+        temp_env::with_vars([
+            ("PIROUETTE_CONFIG_FILE", None::<&str>),
+        ], || {
+                let expected_path = get_config_file_path_default();
+                let actual_path = get_config_file_path();
+                assert_eq!(actual_path, expected_path);
+            }
+        )
+    }
+
+    #[test]
+    fn get_config_file_with_empty_envvar() {
+        temp_env::with_vars([
+            ("PIROUETTE_CONFIG_FILE", Some("")),
+        ], || {
+                let expected_path = get_config_file_path_default();
+                let actual_path = get_config_file_path();
+                assert_eq!(actual_path, expected_path);
+            }
+        )
+    }
+
+    #[test]
+    fn validate_source_fails_on_nonexistent_file() {
+        let test_data = ConfigPath {
+            path: path::PathBuf::from(""), // No such "" file
+        };
+        let actual_result = validate_config_source(&test_data);
+        assert!(actual_result.is_err());
+    }
+
+    fn get_random_string(length: u8) -> String {
+        let mut rng = rand::rng();
+        let s: String = (&mut rng).sample_iter(rand::distr::Alphanumeric)
+            .take(length.into())
+            .map(char::from)
+            .collect();
+        s
+    }
+
+    #[test]
+    fn validate_source_succeeds_on_existing_file() -> Result<()> {
+        // Create some real test file
+        let mut temp_file = env::temp_dir();
+        temp_file.push(format!("pirouette_{}", get_random_string(10)));
+        let _ = std::fs::write(&temp_file, "foo")?;
+
+        let test_data = ConfigPath {
+            path: temp_file.clone(),
+        };
+        let actual_result = validate_config_source(&test_data);
+
+        // Clean up test file afterwards
+        let _ = std::fs::remove_file(temp_file)?;
+
+        assert!(actual_result.is_ok());
+        Ok(())
+    }
+
 }
