@@ -45,8 +45,8 @@ fn get_rotation_targets(config: &Config) -> Result<Vec<&ConfigRetentionKind>> {
                 .with_context(|| format!("failed to create directory {}", retention_path.display()))?;
         }
 
-        let newest_child = get_newest_directory_child(&retention_path);
-        match newest_child {
+        let newest_entry = get_newest_directory_entry(&retention_path);
+        match newest_entry {
             // If there's existing snapshots, check if they're old enough to need rotation
             Some(snapshot) => match has_target_snapshot_aged_out(&retention_period, &snapshot)? {
                 true => rotation_targets.push(retention_period),
@@ -61,15 +61,22 @@ fn get_rotation_targets(config: &Config) -> Result<Vec<&ConfigRetentionKind>> {
     Ok(rotation_targets)
 }
 
-fn get_newest_directory_child(directory: &PathBuf) -> Option<fs::DirEntry> {
-    let dir_entries = match fs::read_dir(directory) {
-        Ok(entries) => entries.flatten(),
-        Err(_) => return None, 
+fn get_newest_directory_entry(directory: &PathBuf) -> Option<fs::DirEntry> {
+    let entries = match fs::read_dir(directory) {
+        Ok(entries) => entries,
+        Err(_) => return None,
     };
 
-    let newest_child = dir_entries.max_by_key(|item|
-        match item.metadata() {
-            Ok(item_metadata) => match item_metadata.created() {
+    let readable_entries = entries.filter_map(|entry|
+        match entry {
+            Ok(entry) => Some(entry),
+            Err(_) => None,
+        }
+    );
+
+    let newest_entry = readable_entries.max_by_key(|entry|
+        match entry.metadata() {
+            Ok(entry_metadata) => match entry_metadata.created() {
                 Ok(time) => time,
                 Err(_) => std::time::SystemTime::UNIX_EPOCH,
             },
@@ -77,7 +84,7 @@ fn get_newest_directory_child(directory: &PathBuf) -> Option<fs::DirEntry> {
         }
     );
 
-    newest_child
+    newest_entry
 }
 
 fn has_target_snapshot_aged_out(retention_kind: &ConfigRetentionKind, snapshot: &fs::DirEntry) -> Result<bool> {
