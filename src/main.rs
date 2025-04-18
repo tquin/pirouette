@@ -17,7 +17,7 @@ fn main() -> Result<()> {
     if !rotation_targets.is_empty() {
         for retention_kind in rotation_targets {
             copy_snapshot(&config, retention_kind)
-                .with_context(|| format!("failed to create snapshot for {}", retention_kind))?;
+                .with_context(|| format!("failed to create snapshot for {retention_kind}"))?;
         }
     }
 
@@ -132,12 +132,12 @@ fn copy_snapshot(config: &Config, retention_kind: &ConfigRetentionKind) -> Resul
 
     let snapshot_path: PathBuf = match snapshot_output_format {
         ConfigOptsOutputFormat::Directory => [
-            base_dir.to_owned(),
+            base_dir.clone(),
             format_snapshot_name_time().into()
         ].iter().collect(),
 
         ConfigOptsOutputFormat::Tarball => [
-            base_dir.to_owned(),
+            base_dir.clone(),
             format!("{}.tgz", format_snapshot_name_time()).into()
         ].iter().collect(),
     };
@@ -277,19 +277,15 @@ fn get_expired_snapshots(entries: Vec<DirEntry>, count: usize) -> Result<Vec<Pat
 
 fn delete_snapshots(expired_snapshots: &[PathBuf]) {
     for snapshot in expired_snapshots {
-        match snapshot.is_dir() {
-            true => {
-                println!("deleting directory {:?}", snapshot);
-                if let Err(err) = fs::remove_dir_all(snapshot) {
-                    println!("{}", err);
-                }
-            },
-            false => {
-                println!("deleting file {:?}", snapshot);
-                if let Err(err) = fs::remove_file(snapshot) {
-                    println!("{}", err);
-                }
-            },
+        if snapshot.is_dir() {
+            if let Err(err) = fs::remove_dir_all(snapshot) {
+                println!("{err}");
+            }
+        }
+        if snapshot.is_file() {
+            if let Err(err) = fs::remove_file(snapshot) {
+                println!("{err}");
+            }
         }
     }
 }
