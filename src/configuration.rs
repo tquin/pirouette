@@ -5,9 +5,7 @@ use std::fs;
 use std::fmt;
 use std::collections::HashMap;
 use serde::Deserialize;
-use toml;
 use anyhow::{Context, Result};
-use anyhow;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -72,7 +70,7 @@ fn get_config_file_path() -> path::PathBuf {
         Err(_) => get_config_file_path_default(),
     };
 
-    return config_file_path;
+    config_file_path
 }
 
 fn get_config_file_path_default() -> path::PathBuf {
@@ -82,7 +80,7 @@ fn get_config_file_path_default() -> path::PathBuf {
     let mut config_file_path = current_directory;
     config_file_path.push("pirouette.toml");
     
-    return config_file_path;
+    config_file_path
 }
 
 /*
@@ -151,7 +149,6 @@ pub fn parse_config() -> Result<Config> {
 mod tests {
     use super::*;
     use rand::Rng;
-    use temp_env;
 
     #[test]
     fn get_config_file_from_envvar() {

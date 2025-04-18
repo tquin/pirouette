@@ -3,9 +3,6 @@ use std::fs;
 use std::fs::DirEntry;
 use std::time;
 use std::path::PathBuf;
-use chrono;
-use flate2;
-use tar;
 
 use configuration::ConfigRetentionKind;
 use configuration::ConfigOptsOutputFormat;
@@ -35,7 +32,7 @@ fn main() -> Result<()> {
 fn get_rotation_targets(config: &Config) -> Result<Vec<&ConfigRetentionKind>> {
     let mut rotation_targets = vec![];
 
-    for (retention_period, _retention_value) in &config.retention {
+    for retention_period in config.retention.keys() {
         
         let mut retention_path = config.target.path.clone();
         retention_path.push(retention_period.to_string());
@@ -49,9 +46,8 @@ fn get_rotation_targets(config: &Config) -> Result<Vec<&ConfigRetentionKind>> {
         let newest_entry = get_newest_directory_entry(&retention_path);
         match newest_entry {
             // If there's existing snapshots, check if they're old enough to need rotation
-            Some(snapshot) => match has_target_snapshot_aged_out(&retention_period, &snapshot)? {
-                true => rotation_targets.push(retention_period),
-                false => (),
+            Some(snapshot) => if has_target_snapshot_aged_out(retention_period, &snapshot)? {
+                rotation_targets.push(retention_period);
             },
 
             // If there's no previous snapshots, we always need to rotate
@@ -75,7 +71,8 @@ fn get_newest_directory_entry(directory: &PathBuf) -> Option<DirEntry> {
         }
     );
 
-    let newest_entry = readable_entries.max_by_key(|entry|
+    // Return the newest item in the directory
+    readable_entries.max_by_key(|entry|
         match entry.metadata() {
             Ok(entry_metadata) => match entry_metadata.created() {
                 Ok(time) => time,
@@ -83,9 +80,7 @@ fn get_newest_directory_entry(directory: &PathBuf) -> Option<DirEntry> {
             },
             Err(_) => std::time::SystemTime::UNIX_EPOCH,
         }
-    );
-
-    newest_entry
+    )
 }
 
 fn has_target_snapshot_aged_out(retention_kind: &ConfigRetentionKind, snapshot: &DirEntry) -> Result<bool> {
@@ -109,11 +104,8 @@ fn has_target_snapshot_aged_out(retention_kind: &ConfigRetentionKind, snapshot: 
         ConfigRetentionKind::Years => 365 * 24 * 60 * 60,
     };
 
-    if snapshot_age.as_secs() >= age_threshold {
-        return Ok(true);
-    } else {
-        return Ok(false);
-    }
+    let result: bool = snapshot_age.as_secs() >= age_threshold;
+    Ok(result)
 }
 
 /*
@@ -189,10 +181,10 @@ fn copy_snapshot_to_dir(config: &Config, snapshot_path: &PathBuf) -> Result<()> 
         progress_bar: false
     };
 
-    fs::create_dir_all(&snapshot_path)
+    fs::create_dir_all(snapshot_path)
         .with_context(|| format!("failed to create directory {}", snapshot_path.display()))?;
 
-    uu_cp::copy(&[config.source.path.clone()],  &snapshot_path, &options)
+    uu_cp::copy(&[config.source.path.clone()],  snapshot_path, &options)
         .with_context(|| format!("failed to copy directory {}", config.source.path.display()))?;
 
     Ok(())
@@ -215,7 +207,7 @@ fn copy_snapshot_to_tarball(config: &Config, snapshot_path: &PathBuf) -> Result<
             let mut f = fs::File::open(&config.source.path)
                 .with_context(|| format!("Failed to read file {}", &config.source.path.display()))?;
             
-            snapshot_archive.append_file(&config.source.path.file_name().unwrap(), &mut f)
+            snapshot_archive.append_file(config.source.path.file_name().unwrap(), &mut f)
                 .with_context(|| format!("Failed to write tarball {}", snapshot_path.display()))?;
         },
     }
@@ -250,9 +242,8 @@ fn clean_snapshots(config: &Config) -> Result<()> {
         if current_snapshot_count > *retention_value {
             let expired_snapshot_count = current_snapshot_count - *retention_value;
 
-            match get_expired_snapshots(readable_entries, expired_snapshot_count) {
-                Ok(expired_snapshots) => delete_snapshots(&expired_snapshots),
-                Err(_) => (),
+            if let Ok(expired_snapshots) = get_expired_snapshots(readable_entries, expired_snapshot_count) {
+                delete_snapshots(&expired_snapshots);
             }
         }
     }
