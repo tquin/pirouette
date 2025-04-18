@@ -284,6 +284,21 @@ fn get_expired_snapshots(entries: Vec<DirEntry>, count: usize) -> Result<Vec<Pat
     Ok(result)
 }
 
-fn delete_snapshots(_expired_snapshots: &[PathBuf]) {
-    todo!();
+fn delete_snapshots(expired_snapshots: &[PathBuf]) {
+    for snapshot in expired_snapshots {
+        match snapshot.is_dir() {
+            true => {
+                println!("deleting directory {:?}", snapshot);
+                if let Err(err) = fs::remove_dir_all(snapshot) {
+                    println!("{}", err);
+                }
+            },
+            false => {
+                println!("deleting file {:?}", snapshot);
+                if let Err(err) = fs::remove_file(snapshot) {
+                    println!("{}", err);
+                }
+            },
+        }
+    }
 }
