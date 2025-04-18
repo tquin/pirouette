@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use std::fs;
+use std::fs::DirEntry;
 use std::time;
 use std::path::PathBuf;
 use chrono;
@@ -23,7 +24,7 @@ fn main() -> Result<()> {
         }
     }
 
-    // todo: clean up old snaps
+    clean_snapshots(&config)?;
     Ok(())
 }
 
@@ -61,7 +62,7 @@ fn get_rotation_targets(config: &Config) -> Result<Vec<&ConfigRetentionKind>> {
     Ok(rotation_targets)
 }
 
-fn get_newest_directory_entry(directory: &PathBuf) -> Option<fs::DirEntry> {
+fn get_newest_directory_entry(directory: &PathBuf) -> Option<DirEntry> {
     let entries = match fs::read_dir(directory) {
         Ok(entries) => entries,
         Err(_) => return None,
@@ -87,7 +88,7 @@ fn get_newest_directory_entry(directory: &PathBuf) -> Option<fs::DirEntry> {
     newest_entry
 }
 
-fn has_target_snapshot_aged_out(retention_kind: &ConfigRetentionKind, snapshot: &fs::DirEntry) -> Result<bool> {
+fn has_target_snapshot_aged_out(retention_kind: &ConfigRetentionKind, snapshot: &DirEntry) -> Result<bool> {
     let snapshot_metadata = match snapshot.metadata() {
         Err(e) => anyhow::bail!(format!("Failed to read metadata for snapshot {:?}: {}", snapshot, e)),
         Ok(snapshot_metadata) => snapshot_metadata,
@@ -223,4 +224,66 @@ fn copy_snapshot_to_tarball(config: &Config, snapshot_path: &PathBuf) -> Result<
         .with_context(|| format!("failed to close tarball {}", snapshot_path.display()))?;
 
     Ok(())
+}
+
+/*
+    Snapshot cleanup
+*/
+
+fn clean_snapshots(config: &Config) -> Result<()> {
+    for (retention_period, retention_value) in &config.retention {
+        let mut retention_path = config.target.path.clone();
+        retention_path.push(retention_period.to_string());
+
+        let entries = fs::read_dir(&retention_path)
+            .context("Failed to read snapshot directory contents")?;
+    
+        let readable_entries: Vec<DirEntry> = entries.filter_map(|entry|
+            match entry {
+                Ok(entry) => Some(entry),
+                Err(_) => None,
+            }
+        ).collect();
+        let current_snapshot_count = readable_entries.len();
+
+        // Do we have more snapshots than the user wants to keep?
+        if current_snapshot_count > *retention_value {
+            let expired_snapshot_count = current_snapshot_count - *retention_value;
+
+            match get_expired_snapshots(readable_entries, expired_snapshot_count) {
+                Ok(expired_snapshots) => delete_snapshots(&expired_snapshots),
+                Err(_) => (),
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn get_expired_snapshots(entries: Vec<DirEntry>, count: usize) -> Result<Vec<PathBuf>> {
+    // Sort the snapshots from oldest -> newest
+    let mut sorted_entries = entries;
+    sorted_entries.sort_by_key(|entry|
+        match entry.metadata() {
+            Ok(entry_metadata) => match entry_metadata.modified() {
+                Ok(time) => time,
+                Err(_) => std::time::SystemTime::UNIX_EPOCH,
+            },
+            Err(_) => std::time::SystemTime::UNIX_EPOCH,
+        }
+    );
+    
+    let (expired_snapshots, _) = sorted_entries.split_at_checked(count)
+        .context("Failed to calculate expired snapshots")?;
+
+    let mut result = vec!();
+    for entry in expired_snapshots {
+        result.push(entry.path());
+    }
+
+    Ok(result)
+}
+
+fn delete_snapshots(_expired_snapshots: &[PathBuf]) {
+    todo!();
 }

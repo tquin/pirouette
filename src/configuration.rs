@@ -13,7 +13,7 @@ use anyhow;
 pub struct Config {
     pub source: ConfigPath,
     pub target: ConfigPath,
-    pub retention: HashMap<ConfigRetentionKind, u32>,
+    pub retention: HashMap<ConfigRetentionKind, usize>,
     pub options: Option<ConfigOpts>,
 }
 
@@ -114,7 +114,7 @@ fn validate_config_target(target: &ConfigPath) -> Result<()> {
 }
 
 // A valid `retention` has at least one non-None field
-fn validate_config_retention(retention: &HashMap<ConfigRetentionKind, u32>) -> Result<()> {
+fn validate_config_retention(retention: &HashMap<ConfigRetentionKind, usize>) -> Result<()> {
     if retention.is_empty() {
         anyhow::bail!("no retention period was specified");
     }
