@@ -74,10 +74,13 @@ fn get_config_file_path() -> path::PathBuf {
 }
 
 fn get_config_file_path_default() -> path::PathBuf {
-    let current_directory = env::current_dir()
-        .expect("Failed to read current directory");
+    let default_directory = match in_container::in_container() {
+        true => path::PathBuf::from("/config"),
+        false => env::current_dir()
+                    .expect("Failed to read current directory"),
+    };
 
-    let mut config_file_path = current_directory;
+    let mut config_file_path = default_directory;
     config_file_path.push("pirouette.toml");
     
     config_file_path
