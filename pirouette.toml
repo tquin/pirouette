@@ -1,9 +1,9 @@
 
 [source]
-path = "./sample/source.txt"
+path = "/source"
 
 [target]
-path = "./sample/target"
+path = "/target"
 
 [retention]
 days = 7
@@ -11,6 +11,3 @@ weeks = 4
 
 [options]
 output_format = "tarball"
-# src: deep copy? shallow? latest file only?
-# glob include/exclude patterns would be nice at some point too.
-# custom-defined retention periods would be nice

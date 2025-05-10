@@ -1,0 +1,10 @@
+services:
+  pirouette:
+    image: tquin/pirouette:latest
+    container_name: pirouette
+    environment:
+      PIROUETTE_CONFIG_FILE: /config/pirouette.toml
+    volumes:
+      - "/your/path/to/source:/source"
+      - "/your/path/to/target:/target"
+      - "/your/path/to/config:/config"
