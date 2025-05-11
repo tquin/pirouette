@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Check cargo version matches git tag
-        run: >-
+        run: |
           cargo install toml-cli
           test "v$(toml get -r Cargo.toml package.version)" = "${{ github.ref_name }}"
 
