@@ -22,6 +22,7 @@ services:
       - "/your/path/to/target:/target"
       - "/your/path/to/config:/config"
 ```
+
 ### Binary from Cargo
 
 Alternatively, if you can't run a container, pirouette is also available as a binary Rust crate.
@@ -44,7 +45,9 @@ This section defines how many copies of the source data pirouette should keep at
 
 ### Options
 
-- `output_format` - either `directory` or `tarball`. Determines whether snapshots of directories retain their original file structure, or are compressed into a single `.tgz` file.
+| Option          | Values                   | Default     | Notes                                                                                                                          |
+| --------------- | ------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `output_format` | `directory`<br>`tarball` | `directory` | Determines whether snapshots of directories retain their original file structure, or are compressed into a single `.tgz` file. |
 
 ### Example
 
@@ -64,8 +67,8 @@ months = 12
 output_format = "tarball"
 ```
 
-
 ## Todo
+
 - src: deep copy? shallow? latest file only?
 - glob include/exclude patterns would be nice at some point too.
 - custom-defined retention periods would be nice
