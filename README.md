@@ -20,7 +20,7 @@ services:
     volumes:
       - "/your/path/to/source:/source"
       - "/your/path/to/target:/target"
-      - "/your/path/to/config:/config"
+      - "/your/path/to/pirouette.toml:/config/pirouette.toml"
 ```
 
 ### Binary from Cargo

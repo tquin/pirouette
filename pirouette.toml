@@ -6,6 +6,7 @@ path = "/source"
 path = "/target"
 
 [retention]
+hours = 5
 days = 7
 weeks = 4
 
