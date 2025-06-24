@@ -73,3 +73,39 @@ fn has_target_snapshot_aged_out(retention_kind: &ConfigRetentionKind, snapshot: 
     let result: bool = snapshot_age.as_secs() >= age_threshold;
     Ok(result)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn test_has_target_snapshot_aged_out() {
+        let test_params: Vec<(ConfigRetentionKind, u64)> = vec![
+            (ConfigRetentionKind::Hours, 3600),
+            (ConfigRetentionKind::Days, 86400),
+            (ConfigRetentionKind::Weeks, 604800),
+            (ConfigRetentionKind::Months, 2592000),
+            (ConfigRetentionKind::Years, 31536000),
+        ];
+
+        for (retention_period, threshold_seconds) in test_params {
+
+            let expired_snapshot = PirouetteDirEntry {
+                path: PathBuf::from("/tmp/fake"),
+                created: SystemTime::now() - Duration::from_secs(threshold_seconds),
+            };
+            let expired_result = has_target_snapshot_aged_out(&retention_period, &expired_snapshot).unwrap();
+            assert!(expired_result);
+
+            let fresh_snapshot = PirouetteDirEntry {
+                path: PathBuf::from("/tmp/fake"),
+                // This assumes the function will return within 1 second
+                created: SystemTime::now() - Duration::from_secs(threshold_seconds - 1),
+            };
+            let fresh_result = has_target_snapshot_aged_out(&retention_period, &fresh_snapshot).unwrap();
+            assert!(!fresh_result);
+        }
+    }
+
+}

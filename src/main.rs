@@ -28,7 +28,7 @@ fn main() -> Result<()> {
     Shared Structs
 */
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PirouetteDirEntry {
     pub path: PathBuf,
     pub created: SystemTime,
