@@ -1,4 +1,7 @@
 use anyhow::{Context, Result};
+use std::fs::DirEntry;
+use std::time::SystemTime;
+use std::path::PathBuf;
 
 mod configuration;
 mod snapshot;
@@ -19,4 +22,29 @@ fn main() -> Result<()> {
 
     clean::clean_snapshots(&config)?;
     Ok(())
+}
+
+/*
+    Shared Structs
+*/
+
+#[derive(Clone)]
+pub struct PirouetteDirEntry {
+    pub path: PathBuf,
+    pub created: SystemTime,
+}
+
+impl From<DirEntry> for PirouetteDirEntry {
+    fn from(entry: DirEntry) -> Self {
+        PirouetteDirEntry {
+            path: entry.path(),
+            created: match entry.metadata() {
+                Ok(entry_metadata) => match entry_metadata.created() {
+                    Ok(time) => time,
+                    Err(_) => SystemTime::UNIX_EPOCH,
+                },
+                Err(_) => SystemTime::UNIX_EPOCH,
+            }
+        }
+    }
 }

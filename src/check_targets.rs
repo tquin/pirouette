@@ -1,11 +1,11 @@
 use anyhow::{Context, Result};
 use std::fs;
-use std::fs::DirEntry;
-use std::time;
+use std::time::SystemTime;
 use std::path::PathBuf;
 
 use crate::configuration::ConfigRetentionKind;
 use crate::configuration::Config;
+use crate::PirouetteDirEntry;
 
 pub fn get_rotation_targets(config: &Config) -> Result<Vec<&ConfigRetentionKind>> {
     let mut rotation_targets = vec![];
@@ -36,7 +36,7 @@ pub fn get_rotation_targets(config: &Config) -> Result<Vec<&ConfigRetentionKind>
     Ok(rotation_targets)
 }
 
-fn get_newest_directory_entry(directory: &PathBuf) -> Option<DirEntry> {
+fn get_newest_directory_entry(directory: &PathBuf) -> Option<PirouetteDirEntry> {
     let entries = match fs::read_dir(directory) {
         Ok(entries) => entries,
         Err(_) => return None,
@@ -49,29 +49,17 @@ fn get_newest_directory_entry(directory: &PathBuf) -> Option<DirEntry> {
         }
     );
 
+    // Convert to abstracted testable type
+    let typed_entries = readable_entries.map(|entry| entry.into());
+
     // Return the newest item in the directory
-    readable_entries.max_by_key(|entry|
-        match entry.metadata() {
-            Ok(entry_metadata) => match entry_metadata.created() {
-                Ok(time) => time,
-                Err(_) => std::time::SystemTime::UNIX_EPOCH,
-            },
-            Err(_) => std::time::SystemTime::UNIX_EPOCH,
-        }
+    typed_entries.max_by_key(|entry: &PirouetteDirEntry|
+        entry.created
     )
 }
 
-fn has_target_snapshot_aged_out(retention_kind: &ConfigRetentionKind, snapshot: &DirEntry) -> Result<bool> {
-    let snapshot_metadata = match snapshot.metadata() {
-        Err(e) => anyhow::bail!(format!("Failed to read metadata for snapshot {:?}: {}", snapshot, e)),
-        Ok(snapshot_metadata) => snapshot_metadata,
-    };
-    let snapshot_time = match snapshot_metadata.created() {
-        Err(e) => anyhow::bail!(format!("Failed to read metadata for snapshot {:?}: {}", snapshot, e)),
-        Ok(snapshot_time) => snapshot_time,
-    };
-
-    let snapshot_age = time::SystemTime::now().duration_since(snapshot_time)
+fn has_target_snapshot_aged_out(retention_kind: &ConfigRetentionKind, snapshot: &PirouetteDirEntry) -> Result<bool> {
+    let snapshot_age = SystemTime::now().duration_since(snapshot.created)
         .context("Failed to calculate snapshot age")?;
 
     let age_threshold = match retention_kind {

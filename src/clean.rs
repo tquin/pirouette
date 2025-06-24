@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
 use std::fs;
-use std::fs::DirEntry;
 use std::path::PathBuf;
 
 use crate::configuration::Config;
+use crate::PirouetteDirEntry;
 
 pub fn clean_snapshots(config: &Config) -> Result<()> {
     for (retention_period, retention_value) in &config.retention {
@@ -13,9 +13,9 @@ pub fn clean_snapshots(config: &Config) -> Result<()> {
         let entries = fs::read_dir(&retention_path)
             .context("Failed to read snapshot directory contents")?;
     
-        let readable_entries: Vec<DirEntry> = entries.filter_map(|entry|
+        let readable_entries: Vec<PirouetteDirEntry> = entries.filter_map(|entry|
             match entry {
-                Ok(entry) => Some(entry),
+                Ok(entry) => Some(entry.into()),
                 Err(_) => None,
             }
         ).collect();
@@ -34,17 +34,11 @@ pub fn clean_snapshots(config: &Config) -> Result<()> {
     Ok(())
 }
 
-fn get_expired_snapshots(entries: Vec<DirEntry>, count: usize) -> Result<Vec<PathBuf>> {
+fn get_expired_snapshots(entries: Vec<PirouetteDirEntry>, count: usize) -> Result<Vec<PathBuf>> {
     // Sort the snapshots from oldest -> newest
     let mut sorted_entries = entries;
     sorted_entries.sort_by_key(|entry|
-        match entry.metadata() {
-            Ok(entry_metadata) => match entry_metadata.modified() {
-                Ok(time) => time,
-                Err(_) => std::time::SystemTime::UNIX_EPOCH,
-            },
-            Err(_) => std::time::SystemTime::UNIX_EPOCH,
-        }
+        entry.created
     );
     
     let (expired_snapshots, _) = sorted_entries.split_at_checked(count)
@@ -52,7 +46,7 @@ fn get_expired_snapshots(entries: Vec<DirEntry>, count: usize) -> Result<Vec<Pat
 
     let mut result = vec!();
     for entry in expired_snapshots {
-        result.push(entry.path());
+        result.push(entry.path.clone());
     }
 
     Ok(result)
