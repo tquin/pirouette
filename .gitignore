@@ -10,3 +10,8 @@ target/
 *.pdb
 
 local_dev/
+
+# Flamegraph
+perf.data
+perf.data.*
+flamegraph.svg

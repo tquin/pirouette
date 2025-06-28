@@ -7,14 +7,7 @@ use crate::configuration::ConfigOptsOutputFormat;
 use crate::configuration::Config;
 
 pub fn copy_snapshot(config: &Config, retention_kind: &ConfigRetentionKind) -> Result<()> {
-    // Default behaviour if unspecified is Directory
-    let snapshot_output_format = match &config.options {
-        Some(config_opts) => match &config_opts.output_format {
-            Some(output_format) => output_format.clone(),
-            None => ConfigOptsOutputFormat::Directory,
-        },
-        None => ConfigOptsOutputFormat::Directory,
-    };
+    let snapshot_output_format = &config.options.output_format;
 
     let base_dir: PathBuf = [
         config.target.path.display().to_string(),

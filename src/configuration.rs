@@ -4,7 +4,7 @@ use std::path;
 use std::fs;
 use std::fmt;
 use std::collections::HashMap;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use anyhow::{Context, Result};
 
 #[derive(Debug, Deserialize)]
@@ -12,7 +12,8 @@ pub struct Config {
     pub source: ConfigPath,
     pub target: ConfigPath,
     pub retention: HashMap<ConfigRetentionKind, usize>,
-    pub options: Option<ConfigOpts>,
+    #[serde(default="default_opts")]
+    pub options: ConfigOpts,
 }
 
 #[derive(Debug, Deserialize)]
@@ -22,7 +23,8 @@ pub struct ConfigPath {
 
 #[derive(Debug, Deserialize)]
 pub struct ConfigOpts {
-    pub output_format: Option<ConfigOptsOutputFormat>,
+    #[serde(default="default_opts_output_format")]
+    pub output_format: ConfigOptsOutputFormat,
 }
 
 #[derive(Debug, Deserialize, Clone, PartialEq)]
@@ -52,6 +54,16 @@ impl fmt::Display for ConfigRetentionKind {
             ConfigRetentionKind::Years => write!(f, "years"),
         }
     }
+}
+
+fn default_opts() -> ConfigOpts {
+    ConfigOpts {
+        output_format: default_opts_output_format(),
+    }
+}
+
+fn default_opts_output_format() -> ConfigOptsOutputFormat {
+    ConfigOptsOutputFormat::Directory
 }
 
 /*
