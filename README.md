@@ -78,3 +78,4 @@ log_level = "error"
 - custom-defined retention periods would be nice
 - dry-run option?
 - one-shot or background daemon mode?
+- run cargo test before deploy pipeline
