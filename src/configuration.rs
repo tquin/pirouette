@@ -6,6 +6,7 @@ use std::fmt;
 use std::collections::HashMap;
 use serde::{Deserialize, Deserializer};
 use anyhow::{Context, Result};
+use log::LevelFilter;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -25,6 +26,11 @@ pub struct ConfigPath {
 pub struct ConfigOpts {
     #[serde(default="default_opts_output_format")]
     pub output_format: ConfigOptsOutputFormat,
+    #[serde(
+        default="default_opts_log_level",
+        deserialize_with="deserialize_opts_log_level"
+    )]
+    pub log_level: LevelFilter,
 }
 
 #[derive(Debug, Deserialize, Clone, PartialEq)]
@@ -59,11 +65,32 @@ impl fmt::Display for ConfigRetentionKind {
 fn default_opts() -> ConfigOpts {
     ConfigOpts {
         output_format: default_opts_output_format(),
+        log_level: default_opts_log_level(),
     }
 }
 
 fn default_opts_output_format() -> ConfigOptsOutputFormat {
     ConfigOptsOutputFormat::Directory
+}
+
+fn default_opts_log_level() -> LevelFilter {
+    LevelFilter::Warn
+}
+
+fn deserialize_opts_log_level<'a, D>(deserializer: D) -> Result<LevelFilter, D::Error>
+    where D: Deserializer<'a> {
+
+    let s = String::deserialize(deserializer)?;
+    let level = match s.to_lowercase().as_str() {
+        "off" => LevelFilter::Off,
+        "error" => LevelFilter::Error,
+        "warn" => LevelFilter::Warn,
+        "info" => LevelFilter::Info,
+        "debug" => LevelFilter::Debug,
+        "trace" => LevelFilter::Trace,
+        _ => default_opts_log_level(),
+    };
+    Ok(level)
 }
 
 /*

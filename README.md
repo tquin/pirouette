@@ -45,9 +45,12 @@ This section defines how many copies of the source data pirouette should keep at
 
 ### Options
 
-| Option          | Values                   | Default     | Notes                                                                                                                          |
-| --------------- | ------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `output_format` | `directory`<br>`tarball` | `directory` | Determines whether snapshots of directories retain their original file structure, or are compressed into a single `.tgz` file. |
+All options listed below are optional, and if excluded will have a default value.
+
+| Option          | Values                                            | Default     | Notes                                                                                                                          |
+| --------------- | ------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `output_format` | `directory`<br>`tarball`                          | `directory` | Determines whether snapshots of directories retain their original file structure, or are compressed into a single `.tgz` file. |
+| `log_level`     | `error`<br>`warn`<br>`info`<br>`debug`<br>`trace` | `warn`      | Set the logging level.                                                                                                         |
 
 ### Example
 
@@ -65,6 +68,7 @@ months = 12
 
 [options]
 output_format = "tarball"
+log_level = "error"
 ```
 
 ## Todo

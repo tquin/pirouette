@@ -11,6 +11,10 @@ mod check_targets;
 fn main() -> Result<()> {
     let config = configuration::parse_config()?;
 
+    env_logger::Builder::from_default_env()
+        .filter_level(config.options.log_level)
+        .init();
+
     let rotation_targets = check_targets::get_rotation_targets(&config)?;
 
     if !rotation_targets.is_empty() {
