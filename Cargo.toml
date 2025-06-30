@@ -23,5 +23,18 @@ temp-env = "0.3.6"
 toml = "0.8.20"
 uu_cp = "0.0.30"
 
+[build]
+jobs = 16                 # Set to your CPU core count
+rustc-wrapper = "sccache" # Enables disk caching
+pipelining = true         # Enables build pipelining
+
+[profile.dev]
+incremental = true        # Enable incremental compilation
+codegen-units = 16        # Enables parallel code generation
+
 [profile.release]
 debug = true
+
+[target.x86_64-unknown-linux-gnu]
+linker = "/usr/bin/clang"
+rustflags = ["-Clink-arg=-fuse-ld=lld"]
