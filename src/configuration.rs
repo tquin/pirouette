@@ -98,7 +98,7 @@ fn deserialize_opts_log_level<'a, D>(deserializer: D) -> Result<LevelFilter, D::
 */
 
 fn get_config_file_path() -> path::PathBuf {
-    let config_file_path = match env::var("PIROUETTE_CONFIG_FILE") {
+    match env::var("PIROUETTE_CONFIG_FILE") {
         Ok(env_var) => match env_var.as_str() {
             // Read from default path if envvar is set, but empty
             "" => get_config_file_path_default(),
@@ -107,9 +107,7 @@ fn get_config_file_path() -> path::PathBuf {
         },
         // Read from default path if envvar is unset
         Err(_) => get_config_file_path_default(),
-    };
-
-    config_file_path
+    }
 }
 
 fn get_config_file_path_default() -> path::PathBuf {
@@ -252,7 +250,7 @@ mod tests {
         // Create some real test file
         let mut temp_file = env::temp_dir();
         temp_file.push(format!("pirouette_{}", get_random_string(10)));
-        let _ = std::fs::write(&temp_file, "foo")?;
+        std::fs::write(&temp_file, "foo")?;
 
         let test_data = ConfigPath {
             path: temp_file.clone(),
@@ -260,7 +258,7 @@ mod tests {
         let actual_result = validate_config_source(&test_data);
 
         // Clean up test file afterwards
-        let _ = std::fs::remove_file(temp_file)?;
+        std::fs::remove_file(temp_file)?;
 
         assert!(actual_result.is_ok());
         Ok(())

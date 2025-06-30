@@ -42,12 +42,7 @@ fn get_newest_directory_entry(directory: &PathBuf) -> Option<PirouetteDirEntry> 
         Err(_) => return None,
     };
 
-    let readable_entries = entries.filter_map(|entry|
-        match entry {
-            Ok(entry) => Some(entry),
-            Err(_) => None,
-        }
-    );
+    let readable_entries = entries.filter_map(|entry| entry.ok());
 
     // Convert to abstracted testable type
     let typed_entries = readable_entries.map(|entry| entry.into());
