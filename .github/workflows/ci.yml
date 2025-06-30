@@ -1,17 +1,37 @@
-name: Publish
+name: Pirouette CI
 
 on:
   workflow_dispatch:
-
   release:
     types: [published]
-
   push:
     tags:
       - 'v*'
 
+env: 
+  CARGO_TERM_COLOR: always
+
 jobs:
+  build_and_test:
+    name: Build and test crate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      
+      - name: setup toolchain
+        uses: hecrj/setup-rust-action@v1
+        with:
+          rust-version: stable
+      
+      - name: cargo test
+        run: cargo test --all-features
+
+      - name: clippy
+        run: cargo clippy --all --all-features --tests -- -D warnings
+
   publish_crate:
+    needs: build_and_test
     name: Push crate to crates.io
     runs-on: ubuntu-latest
     container:
@@ -31,6 +51,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_CRATESIO_TOKEN }}
 
   publish_container:
+    needs: build_and_test
     name: Push Docker image to Docker Hub
     runs-on: ubuntu-latest
     steps:
