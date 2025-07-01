@@ -1,12 +1,12 @@
 use anyhow::{Context, Result};
 use std::fs::DirEntry;
-use std::time::SystemTime;
 use std::path::PathBuf;
+use std::time::SystemTime;
 
+mod check_targets;
+mod clean;
 mod configuration;
 mod snapshot;
-mod clean;
-mod check_targets;
 
 fn main() -> Result<()> {
     let config = configuration::parse_config()?;
@@ -48,7 +48,7 @@ impl From<DirEntry> for PirouetteDirEntry {
                     Err(_) => SystemTime::UNIX_EPOCH,
                 },
                 Err(_) => SystemTime::UNIX_EPOCH,
-            }
+            },
         }
     }
 }
