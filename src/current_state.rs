@@ -25,9 +25,8 @@ pub fn get_rotation_targets(config: &Config) -> Result<Vec<&ConfigRetentionKind>
             log::info!(
                 "Retention directory {retention_path:?} does not exist, attempting to create it"
             );
-            fs::create_dir_all(&retention_path).with_context(|| {
-                format!("failed to create directory {}", retention_path.display())
-            })?;
+            fs::create_dir_all(&retention_path)
+                .with_context(|| format!("failed to create directory {retention_path:?}"))?;
         }
 
         let newest_entry = get_newest_directory_entry(&retention_path);

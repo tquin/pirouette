@@ -163,15 +163,11 @@ pub fn parse_config() -> Result<Config> {
     // Read configuration file as string
     let config_file_path = get_config_file_path();
     let config_file_str = fs::read_to_string(&config_file_path)
-        .with_context(|| format!("failed to read config file: {}", config_file_path.display()))?;
+        .with_context(|| format!("failed to read config file: {config_file_path:?}"))?;
 
     // Parse the toml into a struct
-    let config: Config = toml::from_str(&config_file_str).with_context(|| {
-        format!(
-            "failed to parse config file: {}",
-            config_file_path.display()
-        )
-    })?;
+    let config: Config = toml::from_str(&config_file_str)
+        .with_context(|| format!("failed to parse config file: {config_file_path:?}"))?;
 
     // Panic if we have any invalid input
     validate_config_source(&config.source).context("failed to validate source")?;

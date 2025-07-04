@@ -6,31 +6,20 @@ use crate::configuration::Config;
 use crate::configuration::ConfigOptsOutputFormat;
 use crate::configuration::ConfigRetentionKind;
 
-pub fn copy_snapshot(config: &Config, retention_kind: &ConfigRetentionKind) -> Result<()> {
+pub fn copy_snapshot(config: &Config, retention_period: &ConfigRetentionKind) -> Result<()> {
     let snapshot_output_format = &config.options.output_format;
 
-    let base_dir: PathBuf = [
+    let retention_path: PathBuf = [
         config.target.path.display().to_string(),
-        retention_kind.to_string(),
+        retention_period.to_string(),
     ]
     .iter()
     .collect();
 
-    fs::create_dir_all(&base_dir)
-        .with_context(|| format!("failed to create directory {}", base_dir.display()))?;
+    fs::create_dir_all(&retention_path)
+        .with_context(|| format!("failed to create directory {retention_path:?}"))?;
 
-    let snapshot_path: PathBuf = match snapshot_output_format {
-        ConfigOptsOutputFormat::Directory => [base_dir.clone(), format_snapshot_name_time().into()]
-            .iter()
-            .collect(),
-
-        ConfigOptsOutputFormat::Tarball => [
-            base_dir.clone(),
-            format!("{}.tgz", format_snapshot_name_time()).into(),
-        ]
-        .iter()
-        .collect(),
-    };
+    let snapshot_path = format_snapshot_path(retention_path, snapshot_output_format);
 
     match snapshot_output_format {
         ConfigOptsOutputFormat::Directory => copy_snapshot_to_dir(config, &snapshot_path)?,
@@ -40,10 +29,26 @@ pub fn copy_snapshot(config: &Config, retention_kind: &ConfigRetentionKind) -> R
     Ok(())
 }
 
-fn format_snapshot_name_time() -> String {
-    chrono::Local::now()
+fn format_snapshot_path(
+    retention_path: PathBuf,
+    snapshot_output_format: &ConfigOptsOutputFormat,
+) -> PathBuf {
+    let snapshot_timestamp = chrono::Local::now()
         .format("%Y-%m-%dT%H:%M")
-        .to_string()
+        .to_string();
+
+    match snapshot_output_format {
+        ConfigOptsOutputFormat::Directory => [retention_path.clone(), snapshot_timestamp.into()]
+            .iter()
+            .collect(),
+
+        ConfigOptsOutputFormat::Tarball => [
+            retention_path.clone(),
+            format!("{snapshot_timestamp}.tgz").into(),
+        ]
+        .iter()
+        .collect(),
+    }
 }
 
 fn copy_snapshot_to_dir(config: &Config, snapshot_path: &PathBuf) -> Result<()> {
@@ -72,17 +77,17 @@ fn copy_snapshot_to_dir(config: &Config, snapshot_path: &PathBuf) -> Result<()> 
     };
 
     fs::create_dir_all(snapshot_path)
-        .with_context(|| format!("failed to create directory {}", snapshot_path.display()))?;
+        .with_context(|| format!("failed to create directory {snapshot_path:?}"))?;
 
     uu_cp::copy(&[config.source.path.clone()], snapshot_path, &options)
-        .with_context(|| format!("failed to copy directory {}", config.source.path.display()))?;
+        .with_context(|| format!("failed to copy directory {:?}", config.source.path))?;
 
     Ok(())
 }
 
 fn copy_snapshot_to_tarball(config: &Config, snapshot_path: &PathBuf) -> Result<()> {
     let snapshot_file = fs::File::create(snapshot_path)
-        .with_context(|| format!("failed to create tarball {}", snapshot_path.display()))?;
+        .with_context(|| format!("failed to create tarball {snapshot_path:?}"))?;
 
     let snapshot_writer =
         flate2::write::GzEncoder::new(&snapshot_file, flate2::Compression::best());
@@ -92,23 +97,22 @@ fn copy_snapshot_to_tarball(config: &Config, snapshot_path: &PathBuf) -> Result<
         // Recursive copy directory contents to root of tar file
         true => snapshot_archive
             .append_dir_all(".", &config.source.path)
-            .with_context(|| format!("Failed to write tarball {}", snapshot_path.display()))?,
+            .with_context(|| format!("Failed to write tarball {snapshot_path:?}"))?,
 
         // Write file contents into archive
         false => {
-            let mut f = fs::File::open(&config.source.path).with_context(|| {
-                format!("Failed to read file {}", &config.source.path.display())
-            })?;
+            let mut f = fs::File::open(&config.source.path)
+                .with_context(|| format!("Failed to read file {:?}", &config.source.path))?;
 
             snapshot_archive
                 .append_file(config.source.path.file_name().unwrap(), &mut f)
-                .with_context(|| format!("Failed to write tarball {}", snapshot_path.display()))?;
+                .with_context(|| format!("Failed to write tarball {snapshot_path:?}"))?;
         }
     }
 
     snapshot_archive
         .into_inner()
-        .with_context(|| format!("failed to close tarball {}", snapshot_path.display()))?;
+        .with_context(|| format!("failed to close tarball {snapshot_path:?}"))?;
 
     Ok(())
 }
