@@ -9,8 +9,6 @@ target/
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
 
-local_dev/
-
 # Flamegraph
 perf.data
 perf.data.*

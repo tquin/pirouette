@@ -33,24 +33,46 @@ Alternatively, if you can't run a container, pirouette is also available as a bi
 
 Configuration for pirouette is done through a `pirouette.toml` file. By default, pirouette will look for this in the current working directory, or `/config` for a container. You can override this by specifying a full path in the environment variable `PIROUETTE_CONFIG_FILE`.
 
-### Source & Target
+### Source
 
-These sections specify the path to the data you want to snapshot, and where they should be stored. If using Docker, you can leave these as `/source` and `/target` and map them to the corresponding host paths in your Compose file.
+Specifies the source data you want to take snapshots of. If using Docker, you can leave this as `/source` and map it to the corresponding host path in your Compose file.
 
-`source` can point to either a single file or a directory. `target` must be a directory, but if it doesn't already exist, pirouette will create it for you.
+The path must already exist, or pirouette will return an error.
+
+| Key    | Required | Value                                    |
+| ------ | -------- | ---------------------------------------- |
+| `path` | Yes      | A path to an existing file or directory. |
+
+### Target
+
+Specifies the destination where you want your snapshots stored. If using Docker, you can leave this as `/target` and map it to the corresponding host path in your Compose file.
+
+If the `target.path` doesn't already exist, pirouette will try to create it for you.
+
+| Key    | Required | Value                  |
+| ------ | -------- | ---------------------- |
+| `path` | Yes      | A path to a directory. |
 
 ### Retention
 
-This section defines how many copies of the source data pirouette should keep at different ages. You can specify any combination of `hours`, `days`, `weeks`, `months`, and `years`, and can exclude any time intervals you don't want to use.
+This section defines how many copies of the source data pirouette should keep at different age intervals. While each key is optional and can be excluded, at least one key in total must be provided.
+
+| Key      | Required | Value                                   |
+| -------- | -------- | --------------------------------------- |
+| `hours`  | No       | An integer number of snapshots to keep. |
+| `days`   | No       | An integer number of snapshots to keep. |
+| `weeks`  | No       | An integer number of snapshots to keep. |
+| `months` | No       | An integer number of snapshots to keep. |
+| `years`  | No       | An integer number of snapshots to keep. |
 
 ### Options
 
 All options listed below are optional, and if excluded will have a default value.
 
-| Option          | Values                                            | Default     | Notes                                                                                                                          |
-| --------------- | ------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `output_format` | `directory`<br>`tarball`                          | `directory` | Determines whether snapshots of directories retain their original file structure, or are compressed into a single `.tgz` file. |
-| `log_level`     | `error`<br>`warn`<br>`info`<br>`debug`<br>`trace` | `warn`      | Set the logging level.                                                                                                         |
+| Key             | Value                                             | Default     | Notes                                                                                             |
+| --------------- | ------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------- |
+| `output_format` | `directory`<br>`tarball`                          | `directory` | Determines whether snapshots retain their structure, or are compressed into a single `.tgz` file. |
+| `log_level`     | `error`<br>`warn`<br>`info`<br>`debug`<br>`trace` | `warn`      | Set the logging level.                                                                            |
 
 ### Example
 
@@ -68,7 +90,15 @@ months = 12
 
 [options]
 output_format = "tarball"
-log_level = "error"
+log_level = "warn"
+```
+
+## Local Development
+
+You can test changes in a Docker container:
+
+```
+./docker-dev.sh
 ```
 
 ## Todo
@@ -78,4 +108,3 @@ log_level = "error"
 - custom-defined retention periods would be nice
 - dry-run option?
 - one-shot or background daemon mode?
-- run cargo test before deploy pipeline
