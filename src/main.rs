@@ -1,31 +1,45 @@
 use anyhow::{Context, Result};
 use std::fs::DirEntry;
+use std::io::Write;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-mod check_targets;
 mod clean;
 mod configuration;
+use crate::configuration::Config;
+mod current_state;
 mod snapshot;
 
 fn main() -> Result<()> {
     let config = configuration::parse_config()?;
 
-    env_logger::Builder::from_default_env()
-        .filter_level(config.options.log_level)
-        .init();
+    initialise_logger(&config);
+    log::info!("Logger initialised");
 
-    let rotation_targets = check_targets::get_rotation_targets(&config)?;
+    let rotation_targets = current_state::get_rotation_targets(&config)?;
 
-    if !rotation_targets.is_empty() {
-        for retention_kind in rotation_targets {
-            snapshot::copy_snapshot(&config, retention_kind)
-                .with_context(|| format!("failed to create snapshot for {retention_kind}"))?;
-        }
+    for retention_period in rotation_targets {
+        snapshot::copy_snapshot(&config, retention_period)
+            .with_context(|| format!("failed to create snapshot for {retention_period}"))?;
     }
 
     clean::clean_snapshots(&config)?;
     Ok(())
+}
+
+fn initialise_logger(config: &Config) {
+    env_logger::Builder::from_default_env()
+        .format(|buf, record| {
+            writeln!(
+                buf,
+                "[{} {}] {}",
+                chrono::Local::now().format("%Y-%m-%dT%H:%M:%S%Z"),
+                record.level(),
+                record.args()
+            )
+        })
+        .filter_level(config.options.log_level)
+        .init();
 }
 
 /*
