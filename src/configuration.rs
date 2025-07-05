@@ -12,7 +12,7 @@ use std::path;
 pub struct Config {
     pub source: ConfigPath,
     pub target: ConfigPath,
-    pub retention: HashMap<ConfigRetentionKind, usize>,
+    pub retention: HashMap<ConfigRetentionPeriod, usize>,
     #[serde(default = "default_opts")]
     pub options: ConfigOpts,
 }
@@ -42,7 +42,7 @@ pub enum ConfigOptsOutputFormat {
 
 #[derive(PartialEq, Eq, Hash, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ConfigRetentionKind {
+pub enum ConfigRetentionPeriod {
     Hours,
     Days,
     Weeks,
@@ -50,14 +50,14 @@ pub enum ConfigRetentionKind {
     Years,
 }
 
-impl fmt::Display for ConfigRetentionKind {
+impl fmt::Display for ConfigRetentionPeriod {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ConfigRetentionKind::Hours => write!(f, "hours"),
-            ConfigRetentionKind::Days => write!(f, "days"),
-            ConfigRetentionKind::Weeks => write!(f, "weeks"),
-            ConfigRetentionKind::Months => write!(f, "months"),
-            ConfigRetentionKind::Years => write!(f, "years"),
+            ConfigRetentionPeriod::Hours => write!(f, "hours"),
+            ConfigRetentionPeriod::Days => write!(f, "days"),
+            ConfigRetentionPeriod::Weeks => write!(f, "weeks"),
+            ConfigRetentionPeriod::Months => write!(f, "months"),
+            ConfigRetentionPeriod::Years => write!(f, "years"),
         }
     }
 }
@@ -151,7 +151,7 @@ fn validate_config_target(target: &ConfigPath) -> Result<()> {
 }
 
 // A valid `retention` has at least one non-None field
-fn validate_config_retention(retention: &HashMap<ConfigRetentionKind, usize>) -> Result<()> {
+fn validate_config_retention(retention: &HashMap<ConfigRetentionPeriod, usize>) -> Result<()> {
     if retention.is_empty() {
         anyhow::bail!("no retention period was specified");
     }

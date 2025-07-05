@@ -5,9 +5,9 @@ use std::time::SystemTime;
 
 use crate::PirouetteDirEntry;
 use crate::configuration::Config;
-use crate::configuration::ConfigRetentionKind;
+use crate::configuration::ConfigRetentionPeriod;
 
-pub fn get_rotation_targets(config: &Config) -> Result<Vec<&ConfigRetentionKind>> {
+pub fn get_rotation_targets(config: &Config) -> Result<Vec<&ConfigRetentionPeriod>> {
     let mut rotation_targets = vec![];
     log::info!("Retention periods: {:?}", config.retention.keys());
 
@@ -77,17 +77,17 @@ fn get_newest_directory_entry(directory: &PathBuf) -> Option<PirouetteDirEntry> 
 }
 
 fn has_target_snapshot_aged_out(
-    retention_period: &ConfigRetentionKind,
+    retention_period: &ConfigRetentionPeriod,
     snapshot: &PirouetteDirEntry,
 ) -> bool {
     let snapshot_age = SystemTime::now().duration_since(snapshot.created);
 
     let age_threshold = match retention_period {
-        ConfigRetentionKind::Hours => 60 * 60,
-        ConfigRetentionKind::Days => 24 * 60 * 60,
-        ConfigRetentionKind::Weeks => 7 * 24 * 60 * 60,
-        ConfigRetentionKind::Months => 30 * 24 * 60 * 60,
-        ConfigRetentionKind::Years => 365 * 24 * 60 * 60,
+        ConfigRetentionPeriod::Hours => 60 * 60,
+        ConfigRetentionPeriod::Days => 24 * 60 * 60,
+        ConfigRetentionPeriod::Weeks => 7 * 24 * 60 * 60,
+        ConfigRetentionPeriod::Months => 30 * 24 * 60 * 60,
+        ConfigRetentionPeriod::Years => 365 * 24 * 60 * 60,
     };
 
     match snapshot_age {
@@ -109,12 +109,12 @@ mod tests {
 
     #[test]
     fn test_has_target_snapshot_aged_out() {
-        let test_params: Vec<(ConfigRetentionKind, u64)> = vec![
-            (ConfigRetentionKind::Hours, 3600),
-            (ConfigRetentionKind::Days, 86400),
-            (ConfigRetentionKind::Weeks, 604800),
-            (ConfigRetentionKind::Months, 2592000),
-            (ConfigRetentionKind::Years, 31536000),
+        let test_params: Vec<(ConfigRetentionPeriod, u64)> = vec![
+            (ConfigRetentionPeriod::Hours, 3600),
+            (ConfigRetentionPeriod::Days, 86400),
+            (ConfigRetentionPeriod::Weeks, 604800),
+            (ConfigRetentionPeriod::Months, 2592000),
+            (ConfigRetentionPeriod::Years, 31536000),
         ];
 
         for (retention_period, threshold_seconds) in test_params {

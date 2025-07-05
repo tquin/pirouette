@@ -4,9 +4,9 @@ use std::path::PathBuf;
 
 use crate::configuration::Config;
 use crate::configuration::ConfigOptsOutputFormat;
-use crate::configuration::ConfigRetentionKind;
+use crate::configuration::ConfigRetentionPeriod;
 
-pub fn copy_snapshot(config: &Config, retention_period: &ConfigRetentionKind) -> Result<()> {
+pub fn copy_snapshot(config: &Config, retention_period: &ConfigRetentionPeriod) -> Result<()> {
     let snapshot_output_format = &config.options.output_format;
 
     let retention_path: PathBuf = [
