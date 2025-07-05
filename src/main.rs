@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use std::fmt;
 use std::fs::DirEntry;
 use std::io::Write;
 use std::path::PathBuf;
@@ -7,6 +8,7 @@ use std::time::SystemTime;
 mod clean;
 mod configuration;
 use crate::configuration::Config;
+use crate::configuration::ConfigRetentionPeriod;
 mod current_state;
 mod snapshot;
 
@@ -16,14 +18,16 @@ fn main() -> Result<()> {
     initialise_logger(&config);
     log::info!("Logger initialised");
 
-    let rotation_targets = current_state::get_rotation_targets(&config)?;
+    let all_targets: Vec<PirouetteRetentionTarget> = get_all_retention_targets(&config);
+    let rotation_targets = current_state::get_rotation_targets(all_targets)?;
 
-    for retention_period in rotation_targets {
-        snapshot::copy_snapshot(&config, retention_period)
-            .with_context(|| format!("failed to create snapshot for {retention_period}"))?;
+    for retention_target in rotation_targets {
+        snapshot::copy_snapshot(&config, &retention_target)
+            .with_context(|| format!("failed to create snapshot for {retention_target}"))?;
+
+        clean::clean_snapshots(&retention_target)?;
     }
 
-    clean::clean_snapshots(&config)?;
     Ok(())
 }
 
@@ -40,6 +44,25 @@ fn initialise_logger(config: &Config) {
         })
         .filter_level(config.options.log_level)
         .init();
+}
+
+fn get_all_retention_targets(config: &Config) -> Vec<PirouetteRetentionTarget> {
+    let mut all_targets: Vec<PirouetteRetentionTarget> = vec![];
+
+    for (retention_period, retention_value) in config.retention.iter() {
+        all_targets.push(PirouetteRetentionTarget {
+            period: retention_period.clone(),
+            path: [
+                config.target.path.display().to_string(),
+                retention_period.to_string(),
+            ]
+            .iter()
+            .collect(),
+            max_count: *retention_value,
+        });
+    }
+
+    all_targets
 }
 
 /*
@@ -64,5 +87,41 @@ impl From<DirEntry> for PirouetteDirEntry {
                 Err(_) => SystemTime::UNIX_EPOCH,
             },
         }
+    }
+}
+
+impl fmt::Display for PirouetteDirEntry {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.path)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct PirouetteRetentionTarget {
+    pub period: ConfigRetentionPeriod,
+    pub path: PathBuf,
+    pub max_count: usize,
+}
+
+impl fmt::Display for PirouetteRetentionTarget {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.period)
+    }
+}
+
+// This is just to pretty-print Vec<PirouetteRetentionTarget>
+pub trait DisplayVec {
+    fn display_vec(&self) -> String;
+}
+
+impl<T: std::fmt::Display> DisplayVec for Vec<T> {
+    fn display_vec(&self) -> String {
+        format!(
+            "[{}]",
+            self.iter()
+                .map(|item| format!("{item}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     }
 }

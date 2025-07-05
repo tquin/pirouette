@@ -40,7 +40,7 @@ pub enum ConfigOptsOutputFormat {
     Tarball,
 }
 
-#[derive(PartialEq, Eq, Hash, Debug, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Debug, Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum ConfigRetentionPeriod {
     Hours,

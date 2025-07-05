@@ -11,11 +11,12 @@ fi
 
 docker build -t "tquin/pirouette:$IMAGE_TAG" .
 
-mkdir -p /tmp/pirouette_source
+mkdir -p /tmp/pirouette_source /tmp/pirouette_target
 touch /tmp/pirouette_source/foo.txt
 
 docker run \
   --name $CONTAINER_NAME --rm \
+  --user $(id -u):$(id -g) \
   -e PIROUETTE_CONFIG_FILE=/config/pirouette.toml \
   -v /tmp/pirouette_source:/source \
   -v /tmp/pirouette_target:/target \

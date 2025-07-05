@@ -2,24 +2,14 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::path::PathBuf;
 
+use crate::PirouetteRetentionTarget;
 use crate::configuration::Config;
 use crate::configuration::ConfigOptsOutputFormat;
-use crate::configuration::ConfigRetentionPeriod;
 
-pub fn copy_snapshot(config: &Config, retention_period: &ConfigRetentionPeriod) -> Result<()> {
+pub fn copy_snapshot(config: &Config, retention_target: &PirouetteRetentionTarget) -> Result<()> {
     let snapshot_output_format = &config.options.output_format;
 
-    let retention_path: PathBuf = [
-        config.target.path.display().to_string(),
-        retention_period.to_string(),
-    ]
-    .iter()
-    .collect();
-
-    fs::create_dir_all(&retention_path)
-        .with_context(|| format!("failed to create directory {retention_path:?}"))?;
-
-    let snapshot_path = format_snapshot_path(retention_path, snapshot_output_format);
+    let snapshot_path = format_snapshot_path(retention_target, snapshot_output_format);
 
     match snapshot_output_format {
         ConfigOptsOutputFormat::Directory => copy_snapshot_to_dir(config, &snapshot_path)?,
@@ -30,7 +20,7 @@ pub fn copy_snapshot(config: &Config, retention_period: &ConfigRetentionPeriod) 
 }
 
 fn format_snapshot_path(
-    retention_path: PathBuf,
+    retention_target: &PirouetteRetentionTarget,
     snapshot_output_format: &ConfigOptsOutputFormat,
 ) -> PathBuf {
     let snapshot_timestamp = chrono::Local::now()
@@ -38,12 +28,14 @@ fn format_snapshot_path(
         .to_string();
 
     match snapshot_output_format {
-        ConfigOptsOutputFormat::Directory => [retention_path.clone(), snapshot_timestamp.into()]
-            .iter()
-            .collect(),
+        ConfigOptsOutputFormat::Directory => {
+            [retention_target.path.clone(), snapshot_timestamp.into()]
+                .iter()
+                .collect()
+        }
 
         ConfigOptsOutputFormat::Tarball => [
-            retention_path.clone(),
+            retention_target.path.clone(),
             format!("{snapshot_timestamp}.tgz").into(),
         ]
         .iter()

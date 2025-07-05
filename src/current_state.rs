@@ -1,60 +1,63 @@
 use anyhow::{Context, Result};
 use std::fs;
-use std::path::PathBuf;
 use std::time::SystemTime;
 
+use crate::DisplayVec;
 use crate::PirouetteDirEntry;
-use crate::configuration::Config;
+use crate::PirouetteRetentionTarget;
 use crate::configuration::ConfigRetentionPeriod;
 
-pub fn get_rotation_targets(config: &Config) -> Result<Vec<&ConfigRetentionPeriod>> {
+pub fn get_rotation_targets(
+    all_targets: Vec<PirouetteRetentionTarget>,
+) -> Result<Vec<PirouetteRetentionTarget>> {
     let mut rotation_targets = vec![];
-    log::info!("Retention periods: {:?}", config.retention.keys());
 
-    for retention_period in config.retention.keys() {
-        log::info!("Checking existing state for {retention_period}");
-        let retention_path: PathBuf = [
-            config.target.path.display().to_string(),
-            retention_period.to_string(),
-        ]
-        .iter()
-        .collect();
+    for retention_target in all_targets {
+        log::info!("Checking existing state for {retention_target}");
 
-        // Path doesn't already exist, but we can try to create it ourselves
-        if !retention_path.exists() {
-            log::info!(
-                "Retention directory {retention_path:?} does not exist, attempting to create it"
-            );
-            fs::create_dir_all(&retention_path)
-                .with_context(|| format!("failed to create directory {retention_path:?}"))?;
-        }
+        create_target_directory(&retention_target)?;
 
-        let newest_entry = get_newest_directory_entry(&retention_path);
-        match newest_entry {
+        match get_newest_directory_entry(&retention_target) {
             // If there's existing snapshots, check if they're old enough to need rotation
             Some(snapshot) => {
-                if has_target_snapshot_aged_out(retention_period, &snapshot) {
-                    log::info!("{retention_path:?} requires a new snapshot");
-                    rotation_targets.push(retention_period);
+                if has_target_snapshot_aged_out(&retention_target, &snapshot) {
+                    log::info!("{retention_target} requires a new snapshot");
+                    rotation_targets.push(retention_target);
                 } else {
-                    log::info!("{retention_path:?} does not require a new snapshot");
+                    log::info!("{retention_target} does not require a new snapshot",);
                 }
             }
 
             // If there's no previous snapshots, we always need to rotate
             None => {
-                log::info!("{retention_path:?} requires a new snapshot");
-                rotation_targets.push(retention_period);
+                log::info!("{retention_target} requires a new snapshot");
+                rotation_targets.push(retention_target);
             }
         }
     }
 
-    log::info!("Snapshots which require rotating: {rotation_targets:?}");
+    log::info!(
+        "Snapshots which require rotating: {}",
+        rotation_targets.display_vec()
+    );
     Ok(rotation_targets)
 }
 
-fn get_newest_directory_entry(directory: &PathBuf) -> Option<PirouetteDirEntry> {
-    let entries = match fs::read_dir(directory) {
+fn create_target_directory(retention_target: &PirouetteRetentionTarget) -> Result<()> {
+    if retention_target.path.exists() {
+        return Ok(());
+    }
+    log::info!("Retention directory {retention_target} does not exist, attempting to create it",);
+    fs::create_dir_all(&retention_target.path)
+        .with_context(|| format!("failed to create directory {retention_target}"))?;
+
+    Ok(())
+}
+
+fn get_newest_directory_entry(
+    retention_target: &PirouetteRetentionTarget,
+) -> Option<PirouetteDirEntry> {
+    let entries = match fs::read_dir(&retention_target.path) {
         Ok(entries) => entries,
         Err(_) => return None,
     };
@@ -66,7 +69,7 @@ fn get_newest_directory_entry(directory: &PathBuf) -> Option<PirouetteDirEntry> 
         .collect();
 
     log::info!(
-        "{directory:?} contains {} existing entries",
+        "{retention_target} contains {} existing entries",
         typed_entries.len()
     );
 
@@ -77,12 +80,12 @@ fn get_newest_directory_entry(directory: &PathBuf) -> Option<PirouetteDirEntry> 
 }
 
 fn has_target_snapshot_aged_out(
-    retention_period: &ConfigRetentionPeriod,
+    retention_target: &PirouetteRetentionTarget,
     snapshot: &PirouetteDirEntry,
 ) -> bool {
     let snapshot_age = SystemTime::now().duration_since(snapshot.created);
 
-    let age_threshold = match retention_period {
+    let age_threshold = match retention_target.period {
         ConfigRetentionPeriod::Hours => 60 * 60,
         ConfigRetentionPeriod::Days => 24 * 60 * 60,
         ConfigRetentionPeriod::Weeks => 7 * 24 * 60 * 60,
@@ -92,10 +95,7 @@ fn has_target_snapshot_aged_out(
 
     match snapshot_age {
         Err(_) => {
-            log::warn!(
-                "Age was in the future for {:?}, is the system clock correct?",
-                snapshot.path
-            );
+            log::warn!("Age was in the future for {snapshot}, is the system clock correct?",);
             false
         }
         Ok(snapshot_age) => snapshot_age.as_secs() >= age_threshold,
@@ -105,6 +105,7 @@ fn has_target_snapshot_aged_out(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
     use std::time::Duration;
 
     #[test]
@@ -118,11 +119,17 @@ mod tests {
         ];
 
         for (retention_period, threshold_seconds) in test_params {
+            let retention_target = PirouetteRetentionTarget {
+                period: retention_period,
+                path: PathBuf::from("/tmp"),
+                max_count: 1,
+            };
+
             let expired_snapshot = PirouetteDirEntry {
                 path: PathBuf::from("/tmp/fake"),
                 created: SystemTime::now() - Duration::from_secs(threshold_seconds),
             };
-            let expired_result = has_target_snapshot_aged_out(&retention_period, &expired_snapshot);
+            let expired_result = has_target_snapshot_aged_out(&retention_target, &expired_snapshot);
             assert!(expired_result);
 
             let fresh_snapshot = PirouetteDirEntry {
@@ -130,7 +137,7 @@ mod tests {
                 // This assumes the function will return within 1 second
                 created: SystemTime::now() - Duration::from_secs(threshold_seconds - 1),
             };
-            let fresh_result = has_target_snapshot_aged_out(&retention_period, &fresh_snapshot);
+            let fresh_result = has_target_snapshot_aged_out(&retention_target, &fresh_snapshot);
             assert!(!fresh_result);
         }
     }
