@@ -5,6 +5,10 @@ use crate::PirouetteDirEntry;
 use crate::PirouetteRetentionTarget;
 
 pub fn clean_snapshots(retention_target: &PirouetteRetentionTarget) -> Result<()> {
+    log::info!(
+        "Checking {:?} for expired snapshots",
+        retention_target.period
+    );
     let entries = fs::read_dir(&retention_target.path)
         .context("Failed to read snapshot directory contents")?;
 
@@ -15,6 +19,10 @@ pub fn clean_snapshots(retention_target: &PirouetteRetentionTarget) -> Result<()
         .collect();
 
     let current_snapshot_count = typed_entries.len();
+    log::info!(
+        "Currently {current_snapshot_count} snapshots, want to keep {}",
+        retention_target.max_count
+    );
 
     // Are there more snapshots than the user wants?
     if current_snapshot_count < retention_target.max_count {
@@ -23,6 +31,7 @@ pub fn clean_snapshots(retention_target: &PirouetteRetentionTarget) -> Result<()
 
     // If so, we need to delete the excess
     let expired_snapshot_count = current_snapshot_count - retention_target.max_count;
+    log::info!("Deleting {expired_snapshot_count} expired snapshots");
 
     if let Ok(expired_snapshots) = get_expired_snapshots(typed_entries, expired_snapshot_count) {
         delete_snapshots(expired_snapshots);
@@ -53,6 +62,8 @@ fn get_expired_snapshots(
 
 fn delete_snapshots(expired_snapshots: Vec<PirouetteDirEntry>) {
     for snapshot in expired_snapshots {
+        log::info!("Deleting {snapshot}");
+
         if snapshot.path.is_dir() {
             if let Err(err) = fs::remove_dir_all(&snapshot.path) {
                 println!("{err}");

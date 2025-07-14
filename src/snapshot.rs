@@ -10,6 +10,10 @@ pub fn copy_snapshot(config: &Config, retention_target: &PirouetteRetentionTarge
     let snapshot_output_format = &config.options.output_format;
 
     let snapshot_path = format_snapshot_path(retention_target, snapshot_output_format);
+    log::info!(
+        "Creating a {snapshot_output_format:?} {:?} snapshot at {snapshot_path:?}",
+        retention_target.period
+    );
 
     match snapshot_output_format {
         ConfigOptsOutputFormat::Directory => copy_snapshot_to_dir(config, &snapshot_path)?,
