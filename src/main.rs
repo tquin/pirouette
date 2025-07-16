@@ -69,7 +69,7 @@ fn get_all_retention_targets(config: &Config) -> Vec<PirouetteRetentionTarget> {
     Shared Structs
 */
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PirouetteDirEntry {
     pub path: PathBuf,
     pub created: SystemTime,

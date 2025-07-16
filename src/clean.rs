@@ -9,23 +9,16 @@ pub fn clean_snapshots(retention_target: &PirouetteRetentionTarget) -> Result<()
         "Checking {:?} for expired snapshots",
         retention_target.period
     );
-    let entries = fs::read_dir(&retention_target.path)
-        .context("Failed to read snapshot directory contents")?;
+    let entries = get_directory_contents(retention_target)?;
 
-    // Convert to abstracted testable type
-    let typed_entries: Vec<_> = entries
-        .filter_map(|entry| entry.ok())
-        .map(|entry| entry.into())
-        .collect();
-
-    let current_snapshot_count = typed_entries.len();
+    let current_snapshot_count = entries.len();
     log::info!(
         "Currently {current_snapshot_count} snapshots, want to keep {}",
         retention_target.max_count
     );
 
-    // Are there more snapshots than the user wants?
-    if current_snapshot_count < retention_target.max_count {
+    // Are we under the configured retention threshold?
+    if current_snapshot_count <= retention_target.max_count {
         return Ok(());
     }
 
@@ -33,11 +26,26 @@ pub fn clean_snapshots(retention_target: &PirouetteRetentionTarget) -> Result<()
     let expired_snapshot_count = current_snapshot_count - retention_target.max_count;
     log::info!("Deleting {expired_snapshot_count} expired snapshots");
 
-    if let Ok(expired_snapshots) = get_expired_snapshots(typed_entries, expired_snapshot_count) {
+    if let Ok(expired_snapshots) = get_expired_snapshots(entries, expired_snapshot_count) {
         delete_snapshots(expired_snapshots);
+    } else {
+        log::warn!("Failed to calculate expired snapshots");
     }
 
     Ok(())
+}
+
+fn get_directory_contents(target: &PirouetteRetentionTarget) -> Result<Vec<PirouetteDirEntry>> {
+    let entries =
+        fs::read_dir(&target.path).context("Failed to read snapshot directory contents")?;
+
+    // Convert to abstracted testable type
+    let typed_entries: Vec<_> = entries
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.into())
+        .collect();
+
+    Ok(typed_entries)
 }
 
 fn get_expired_snapshots(
@@ -48,6 +56,8 @@ fn get_expired_snapshots(
     let mut sorted_entries = entries;
     sorted_entries.sort_by_key(|entry| entry.created);
 
+    // In theory, this fails if count > len, but we already early return
+    // in the parent function for that case, so this should always be Ok()
     let (expired_snapshots, _) = sorted_entries
         .split_at_checked(count)
         .context("Failed to calculate expired snapshots")?;
@@ -66,13 +76,58 @@ fn delete_snapshots(expired_snapshots: Vec<PirouetteDirEntry>) {
 
         if snapshot.path.is_dir() {
             if let Err(err) = fs::remove_dir_all(&snapshot.path) {
-                println!("{err}");
+                log::error!("{err}");
             }
-        }
-        if snapshot.path.is_file() {
+        } else if snapshot.path.is_file() {
             if let Err(err) = fs::remove_file(&snapshot.path) {
-                println!("{err}");
+                log::error!("{err}");
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use std::time::{Duration, UNIX_EPOCH};
+
+    #[test]
+    fn test_expired_snapshot_count() {
+        let mut test_data = vec![];
+        for i in 0..10 {
+            test_data.push(PirouetteDirEntry {
+                path: PathBuf::from("/tmp/fake"),
+                created: UNIX_EPOCH + Duration::from_secs(i),
+            })
+        }
+
+        // Should return the number of entries we asked for
+        for i in 0..10 {
+            assert_eq!(
+                get_expired_snapshots(test_data.clone(), i)
+                    .unwrap()
+                    .len(),
+                i
+            );
+        }
+    }
+
+    #[test]
+    fn test_expired_snapshot_order() {
+        let earlier_entry = PirouetteDirEntry {
+            path: PathBuf::from("/tmp/fake"),
+            created: UNIX_EPOCH + Duration::from_secs(1),
+        };
+        let later_entry = PirouetteDirEntry {
+            path: PathBuf::from("/tmp/fake"),
+            created: UNIX_EPOCH + Duration::from_secs(2),
+        };
+
+        let test_data = vec![earlier_entry.clone(), later_entry.clone()];
+        let result = get_expired_snapshots(test_data, 1).unwrap();
+
+        assert!(result.contains(&earlier_entry));
+        assert!(!result.contains(&later_entry));
     }
 }
