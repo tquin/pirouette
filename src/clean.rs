@@ -3,13 +3,14 @@ use std::fs;
 
 use crate::PirouetteDirEntry;
 use crate::PirouetteRetentionTarget;
+use crate::configuration::Config;
 
-pub fn clean_snapshots(retention_target: &PirouetteRetentionTarget) -> Result<()> {
+pub fn clean_snapshots(config: &Config, retention_target: &PirouetteRetentionTarget) -> Result<()> {
     log::info!(
         "Checking {:?} for expired snapshots",
         retention_target.period
     );
-    let entries = get_directory_contents(retention_target)?;
+    let entries = get_directory_entries(retention_target);
 
     let current_snapshot_count = entries.len();
     log::info!(
@@ -27,7 +28,11 @@ pub fn clean_snapshots(retention_target: &PirouetteRetentionTarget) -> Result<()
     log::info!("Deleting {expired_snapshot_count} expired snapshots");
 
     if let Ok(expired_snapshots) = get_expired_snapshots(entries, expired_snapshot_count) {
-        delete_snapshots(expired_snapshots);
+        if config.options.dry_run {
+            log::debug!("(dry_run) snapshots will not be deleted.");
+        } else {
+            delete_snapshots(expired_snapshots);
+        }
     } else {
         log::warn!("Failed to calculate expired snapshots");
     }
@@ -35,17 +40,20 @@ pub fn clean_snapshots(retention_target: &PirouetteRetentionTarget) -> Result<()
     Ok(())
 }
 
-fn get_directory_contents(target: &PirouetteRetentionTarget) -> Result<Vec<PirouetteDirEntry>> {
-    let entries =
-        fs::read_dir(&target.path).context("Failed to read snapshot directory contents")?;
+fn get_directory_entries(target: &PirouetteRetentionTarget) -> Vec<PirouetteDirEntry> {
+    let entries = match fs::read_dir(&target.path) {
+        Ok(entries) => entries,
+        Err(_) => {
+            log::warn!("failed to read {:?} contents", &target.path);
+            return vec![];
+        }
+    };
 
     // Convert to abstracted testable type
-    let typed_entries: Vec<_> = entries
+    entries
         .filter_map(|entry| entry.ok())
         .map(|entry| entry.into())
-        .collect();
-
-    Ok(typed_entries)
+        .collect()
 }
 
 fn get_expired_snapshots(

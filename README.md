@@ -73,6 +73,7 @@ All options listed below are optional, and if excluded will have a default value
 | --------------- | ------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------- |
 | `output_format` | `directory`<br>`tarball`                          | `directory` | Determines whether snapshots retain their structure, or are compressed into a single `.tgz` file. |
 | `log_level`     | `error`<br>`warn`<br>`info`<br>`debug`<br>`trace` | `warn`      | Set the logging level.                                                                            |
+| `dry_run`       | `true`<br>`false`                                 | `false`     | Determines if file system changes can occur. If `true`, will generate `DEBUG`-level logs instead. |
 
 ### Example
 
@@ -106,5 +107,4 @@ You can test changes in a Docker container:
 - src: deep copy? shallow? latest file only?
 - glob include/exclude patterns would be nice at some point too.
 - custom-defined retention periods would be nice
-- dry-run option?
 - one-shot or background daemon mode?

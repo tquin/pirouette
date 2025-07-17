@@ -17,15 +17,16 @@ fn main() -> Result<()> {
 
     initialise_logger(&config);
     log::info!("Logger initialised");
+    log::debug!("Parsed config file:\n{config:#?}");
 
     let all_targets: Vec<PirouetteRetentionTarget> = get_all_retention_targets(&config);
-    let rotation_targets = current_state::get_rotation_targets(all_targets)?;
+    let rotation_targets = current_state::get_rotation_targets(&config, all_targets)?;
 
     for retention_target in rotation_targets {
         snapshot::copy_snapshot(&config, &retention_target)
             .with_context(|| format!("failed to create snapshot for {retention_target}"))?;
 
-        clean::clean_snapshots(&retention_target)?;
+        clean::clean_snapshots(&config, &retention_target)?;
     }
 
     Ok(())

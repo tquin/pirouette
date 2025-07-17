@@ -15,9 +15,13 @@ pub fn copy_snapshot(config: &Config, retention_target: &PirouetteRetentionTarge
         retention_target.period
     );
 
-    match snapshot_output_format {
-        ConfigOptsOutputFormat::Directory => copy_snapshot_to_dir(config, &snapshot_path)?,
-        ConfigOptsOutputFormat::Tarball => copy_snapshot_to_tarball(config, &snapshot_path)?,
+    if config.options.dry_run {
+        log::debug!("(dry_run) snapshot will not be created.");
+    } else {
+        match snapshot_output_format {
+            ConfigOptsOutputFormat::Directory => copy_snapshot_to_dir(config, &snapshot_path)?,
+            ConfigOptsOutputFormat::Tarball => copy_snapshot_to_tarball(config, &snapshot_path)?,
+        }
     }
 
     Ok(())

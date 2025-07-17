@@ -31,6 +31,11 @@ pub struct ConfigOpts {
         deserialize_with = "deserialize_opts_log_level"
     )]
     pub log_level: LevelFilter,
+    #[serde(
+        default = "default_opts_dry_run",
+        deserialize_with = "deserialize_opts_dry_run"
+    )]
+    pub dry_run: bool,
 }
 
 #[derive(Debug, Deserialize, Clone, PartialEq)]
@@ -66,6 +71,7 @@ fn default_opts() -> ConfigOpts {
     ConfigOpts {
         output_format: default_opts_output_format(),
         log_level: default_opts_log_level(),
+        dry_run: default_opts_dry_run(),
     }
 }
 
@@ -92,6 +98,23 @@ where
         _ => default_opts_log_level(),
     };
     Ok(level)
+}
+
+fn default_opts_dry_run() -> bool {
+    false
+}
+
+fn deserialize_opts_dry_run<'a, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: Deserializer<'a>,
+{
+    let s = String::deserialize(deserializer)?;
+    let result = match s.to_lowercase().as_str() {
+        "false" => false,
+        "true" => true,
+        _ => default_opts_dry_run(),
+    };
+    Ok(result)
 }
 
 /*
@@ -136,13 +159,8 @@ fn validate_config_source(source: &ConfigPath) -> Result<()> {
     Ok(())
 }
 
-// A valid `target` is only a directory
+// A valid `target` is only a directory, or a new non-existent path
 fn validate_config_target(target: &ConfigPath) -> Result<()> {
-    // Path doesn't already exist, but we can try to create it ourselves
-    if !target.path.exists() {
-        fs::create_dir_all(&target.path).context("failed to create target directory")?;
-    }
-
     if target.path.exists() && !target.path.is_dir() {
         anyhow::bail!("target path is a file, not a directory");
     }

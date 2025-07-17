@@ -5,9 +5,11 @@ use std::time::SystemTime;
 use crate::DisplayVec;
 use crate::PirouetteDirEntry;
 use crate::PirouetteRetentionTarget;
+use crate::configuration::Config;
 use crate::configuration::ConfigRetentionPeriod;
 
 pub fn get_rotation_targets(
+    config: &Config,
     all_targets: Vec<PirouetteRetentionTarget>,
 ) -> Result<Vec<PirouetteRetentionTarget>> {
     let mut rotation_targets = vec![];
@@ -15,7 +17,7 @@ pub fn get_rotation_targets(
     for retention_target in all_targets {
         log::info!("Checking existing state for {retention_target}");
 
-        create_target_directory(&retention_target)?;
+        create_target_directory(config.options.dry_run, &retention_target)?;
 
         match get_newest_directory_entry(&retention_target) {
             // If there's existing snapshots, check if they're old enough to need rotation
@@ -30,7 +32,7 @@ pub fn get_rotation_targets(
 
             // If there's no previous snapshots, we always need to rotate
             None => {
-                log::info!("{retention_target} requires a new snapshot");
+                log::info!("{retention_target} is empty and requires a new snapshot");
                 rotation_targets.push(retention_target);
             }
         }
@@ -43,13 +45,20 @@ pub fn get_rotation_targets(
     Ok(rotation_targets)
 }
 
-fn create_target_directory(retention_target: &PirouetteRetentionTarget) -> Result<()> {
+fn create_target_directory(
+    dry_run: bool,
+    retention_target: &PirouetteRetentionTarget,
+) -> Result<()> {
     if retention_target.path.exists() {
         return Ok(());
     }
-    log::info!("Retention directory {retention_target} does not exist, attempting to create it",);
-    fs::create_dir_all(&retention_target.path)
-        .with_context(|| format!("failed to create directory {retention_target}"))?;
+    log::info!("Retention directory {retention_target} does not exist, attempting to create it");
+    if dry_run {
+        log::debug!("(dry_run) directory will not be created.");
+    } else {
+        fs::create_dir_all(&retention_target.path)
+            .with_context(|| format!("failed to create directory {retention_target}"))?;
+    }
 
     Ok(())
 }
