@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -eu; set -o pipefail
 
 CONTAINER_NAME="pirouette-dev"
 IMAGE_TAG="dev"

@@ -1,4 +1,6 @@
-FROM rust:1.86-bookworm AS chef
+ARG CARGO_VERSION=1.88
+
+FROM rust:${CARGO_VERSION}-bookworm AS chef
 RUN cargo install cargo-chef 
 WORKDIR /app
 
@@ -11,7 +13,7 @@ RUN cargo chef prepare --recipe-path recipe.json
 #####
 
 # Build dependencies
-FROM chef AS builder 
+FROM chef AS builder
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 
@@ -21,7 +23,7 @@ RUN cargo build --release --bin pirouette
 
 #####
 
-FROM debian:bookworm-slim AS runtime
+FROM gcr.io/distroless/cc-debian12 AS runtime
 WORKDIR /app
-COPY --from=builder /app/target/release/pirouette /usr/local/bin
-ENTRYPOINT ["/usr/local/bin/pirouette"]
+COPY --from=builder /app/target/release/pirouette /bin/
+ENTRYPOINT ["/bin/pirouette"]
