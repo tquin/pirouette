@@ -96,9 +96,15 @@ impl From<DirEntry> for PirouetteDirEntry {
             timestamp: match entry.metadata() {
                 Ok(entry_metadata) => match entry_metadata.modified() {
                     Ok(time) => time,
-                    Err(_) => SystemTime::UNIX_EPOCH,
+                    Err(e) => {
+                        log::warn!("Failed to read snapshot time: {e}");
+                        SystemTime::UNIX_EPOCH
+                    }
                 },
-                Err(_) => SystemTime::UNIX_EPOCH,
+                Err(e) => {
+                    log::warn!("Failed to read snapshot time: {e}");
+                    SystemTime::UNIX_EPOCH
+                }
             },
         }
     }
