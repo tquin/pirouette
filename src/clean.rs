@@ -4,6 +4,7 @@ use std::fs;
 use crate::PirouetteDirEntry;
 use crate::PirouetteRetentionTarget;
 use crate::configuration::Config;
+use crate::dry_run;
 
 pub fn clean_snapshots(config: &Config, retention_target: &PirouetteRetentionTarget) -> Result<()> {
     log::info!(
@@ -28,16 +29,19 @@ pub fn clean_snapshots(config: &Config, retention_target: &PirouetteRetentionTar
     log::info!("Deleting {expired_snapshot_count} expired snapshots");
 
     if let Ok(expired_snapshots) = get_expired_snapshots(entries, expired_snapshot_count) {
-        if config.options.dry_run {
-            log::debug!("(dry_run) snapshots will not be deleted.");
-        } else {
-            delete_snapshots(expired_snapshots);
-        }
+        dry_run!(
+            config.options.dry_run,
+            format!("snapshots will not be deleted"),
+            {
+                delete_snapshots(expired_snapshots);
+                // This function doesn't fail, but dry_run!() expects a Result<>
+                Ok::<(), anyhow::Error>(())
+            }
+        )
     } else {
         log::warn!("Failed to calculate expired snapshots");
+        Ok(())
     }
-
-    Ok(())
 }
 
 fn get_directory_entries(target: &PirouetteRetentionTarget) -> Vec<PirouetteDirEntry> {

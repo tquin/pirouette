@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use crate::PirouetteRetentionTarget;
 use crate::configuration::Config;
 use crate::configuration::ConfigOptsOutputFormat;
+use crate::dry_run;
 
 pub fn copy_snapshot(config: &Config, retention_target: &PirouetteRetentionTarget) -> Result<()> {
     let snapshot_output_format = &config.options.output_format;
@@ -15,16 +16,16 @@ pub fn copy_snapshot(config: &Config, retention_target: &PirouetteRetentionTarge
         retention_target.period
     );
 
-    if config.options.dry_run {
-        log::debug!("(dry_run) snapshot will not be created.");
-    } else {
-        match snapshot_output_format {
-            ConfigOptsOutputFormat::Directory => copy_snapshot_to_dir(config, &snapshot_path)?,
-            ConfigOptsOutputFormat::Tarball => copy_snapshot_to_tarball(config, &snapshot_path)?,
+    dry_run!(
+        config.options.dry_run,
+        format!("snapshot will not be created"),
+        {
+            match snapshot_output_format {
+                ConfigOptsOutputFormat::Directory => copy_snapshot_to_dir(config, &snapshot_path),
+                ConfigOptsOutputFormat::Tarball => copy_snapshot_to_tarball(config, &snapshot_path),
+            }
         }
-    }
-
-    Ok(())
+    )
 }
 
 fn format_snapshot_path(

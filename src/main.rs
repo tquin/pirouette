@@ -5,10 +5,11 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-mod clean;
-mod configuration;
 use crate::configuration::Config;
 use crate::configuration::ConfigRetentionPeriod;
+
+mod clean;
+mod configuration;
 mod current_state;
 mod snapshot;
 
@@ -64,6 +65,18 @@ fn get_all_retention_targets(config: &Config) -> Vec<PirouetteRetentionTarget> {
     }
 
     all_targets
+}
+
+#[macro_export]
+macro_rules! dry_run {
+    ($dry_run:expr, $message:expr, $action:block) => {
+        if $dry_run {
+            log::debug!("[DRY RUN] {}", $message);
+            Ok(())
+        } else {
+            $action
+        }
+    };
 }
 
 /*

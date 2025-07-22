@@ -7,6 +7,7 @@ use crate::PirouetteDirEntry;
 use crate::PirouetteRetentionTarget;
 use crate::configuration::Config;
 use crate::configuration::ConfigRetentionPeriod;
+use crate::dry_run;
 
 pub fn get_rotation_targets(
     config: &Config,
@@ -17,7 +18,7 @@ pub fn get_rotation_targets(
     for retention_target in all_targets {
         log::info!("Checking existing state for {retention_target}");
 
-        create_target_directory(config.options.dry_run, &retention_target)?;
+        create_target_directory(config, &retention_target)?;
 
         match get_newest_directory_entry(&retention_target) {
             // If there's existing snapshots, check if they're old enough to need rotation
@@ -46,21 +47,25 @@ pub fn get_rotation_targets(
 }
 
 fn create_target_directory(
-    dry_run: bool,
+    config: &Config,
     retention_target: &PirouetteRetentionTarget,
 ) -> Result<()> {
     if retention_target.path.exists() {
         return Ok(());
     }
-    log::info!("Retention directory {retention_target} does not exist, attempting to create it");
-    if dry_run {
-        log::debug!("(dry_run) directory will not be created.");
-    } else {
-        fs::create_dir_all(&retention_target.path)
-            .with_context(|| format!("failed to create directory {retention_target}"))?;
-    }
+    log::info!(
+        "Retention directory {:?} does not exist, attempting to create it",
+        retention_target.path
+    );
 
-    Ok(())
+    dry_run!(
+        config.options.dry_run,
+        format!("{:?} directory will not be created", retention_target.path),
+        {
+            fs::create_dir_all(&retention_target.path)
+                .with_context(|| format!("failed to create directory {retention_target}"))
+        }
+    )
 }
 
 fn get_newest_directory_entry(
@@ -92,6 +97,8 @@ fn has_target_snapshot_aged_out(
     retention_target: &PirouetteRetentionTarget,
     snapshot: &PirouetteDirEntry,
 ) -> bool {
+    log::debug!("Checking age of snapshot: {snapshot:?}");
+
     let snapshot_age = SystemTime::now().duration_since(snapshot.created);
 
     let age_threshold = match retention_target.period {
