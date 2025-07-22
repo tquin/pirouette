@@ -1,11 +1,8 @@
 ARG CARGO_VERSION=1.88
-ARG ALPINE_VERSION=3.22
-ARG DEBIAN_VERSION=12
+ARG DEBIAN_VERSION=bookworm
 
-FROM rust:${CARGO_VERSION}-alpine${ALPINE_VERSION} AS chef
+FROM rust:${CARGO_VERSION}-bookworm AS chef
 WORKDIR /app
-RUN apk add --no-cache musl-dev
-RUN rustup target add x86_64-unknown-linux-musl
 RUN cargo install cargo-chef 
 
 #####
@@ -25,14 +22,13 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build \
     --release \
-    --target x86_64-unknown-linux-musl \
     --bin pirouette
 
 #####
 
-FROM gcr.io/distroless/static-debian${DEBIAN_VERSION} AS runtime
+FROM debian:${DEBIAN_VERSION}-slim AS runtime
 WORKDIR /app
 COPY --from=builder \
-    /app/target/x86_64-unknown-linux-musl/release/pirouette \
+    /app/target/release/pirouette \
     /usr/local/bin/
 ENTRYPOINT ["/usr/local/bin/pirouette"]
