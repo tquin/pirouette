@@ -86,15 +86,15 @@ macro_rules! dry_run {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PirouetteDirEntry {
     pub path: PathBuf,
-    pub created: SystemTime,
+    pub timestamp: SystemTime,
 }
 
 impl From<DirEntry> for PirouetteDirEntry {
     fn from(entry: DirEntry) -> Self {
         PirouetteDirEntry {
             path: entry.path(),
-            created: match entry.metadata() {
-                Ok(entry_metadata) => match entry_metadata.created() {
+            timestamp: match entry.metadata() {
+                Ok(entry_metadata) => match entry_metadata.modified() {
                     Ok(time) => time,
                     Err(_) => SystemTime::UNIX_EPOCH,
                 },

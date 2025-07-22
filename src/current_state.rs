@@ -90,7 +90,7 @@ fn get_newest_directory_entry(
     // Return the newest item in the directory
     typed_entries
         .into_iter()
-        .max_by_key(|entry: &PirouetteDirEntry| entry.created)
+        .max_by_key(|entry: &PirouetteDirEntry| entry.timestamp)
 }
 
 fn has_target_snapshot_aged_out(
@@ -99,7 +99,7 @@ fn has_target_snapshot_aged_out(
 ) -> bool {
     log::debug!("Checking age of snapshot: {snapshot:?}");
 
-    let snapshot_age = SystemTime::now().duration_since(snapshot.created);
+    let snapshot_age = SystemTime::now().duration_since(snapshot.timestamp);
 
     let age_threshold = match retention_target.period {
         ConfigRetentionPeriod::Hours => 60 * 60,
@@ -143,7 +143,7 @@ mod tests {
 
             let expired_snapshot = PirouetteDirEntry {
                 path: PathBuf::from("/tmp/fake"),
-                created: SystemTime::now() - Duration::from_secs(threshold_seconds),
+                timestamp: SystemTime::now() - Duration::from_secs(threshold_seconds),
             };
             let expired_result = has_target_snapshot_aged_out(&retention_target, &expired_snapshot);
             assert!(expired_result);
@@ -151,7 +151,7 @@ mod tests {
             let fresh_snapshot = PirouetteDirEntry {
                 path: PathBuf::from("/tmp/fake"),
                 // This assumes the function will return within 1 second
-                created: SystemTime::now() - Duration::from_secs(threshold_seconds - 1),
+                timestamp: SystemTime::now() - Duration::from_secs(threshold_seconds - 1),
             };
             let fresh_result = has_target_snapshot_aged_out(&retention_target, &fresh_snapshot);
             assert!(!fresh_result);

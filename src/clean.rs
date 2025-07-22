@@ -66,7 +66,7 @@ fn get_expired_snapshots(
 ) -> Result<Vec<PirouetteDirEntry>> {
     // Sort the snapshots from oldest -> newest
     let mut sorted_entries = entries;
-    sorted_entries.sort_by_key(|entry| entry.created);
+    sorted_entries.sort_by_key(|entry| entry.timestamp);
 
     // In theory, this fails if count > len, but we already early return
     // in the parent function for that case, so this should always be Ok()
@@ -110,7 +110,7 @@ mod tests {
         for i in 0..10 {
             test_data.push(PirouetteDirEntry {
                 path: PathBuf::from("/tmp/fake"),
-                created: UNIX_EPOCH + Duration::from_secs(i),
+                timestamp: UNIX_EPOCH + Duration::from_secs(i),
             })
         }
 
@@ -129,11 +129,11 @@ mod tests {
     fn test_expired_snapshot_order() {
         let earlier_entry = PirouetteDirEntry {
             path: PathBuf::from("/tmp/fake"),
-            created: UNIX_EPOCH + Duration::from_secs(1),
+            timestamp: UNIX_EPOCH + Duration::from_secs(1),
         };
         let later_entry = PirouetteDirEntry {
             path: PathBuf::from("/tmp/fake"),
-            created: UNIX_EPOCH + Duration::from_secs(2),
+            timestamp: UNIX_EPOCH + Duration::from_secs(2),
         };
 
         let test_data = vec![earlier_entry.clone(), later_entry.clone()];
