@@ -142,6 +142,10 @@ fn get_source_contents_iter(source_path: &PathBuf) -> impl Iterator<Item = Pirou
 impl PirouetteDirEntry {
     #[allow(dead_code)]
     fn glob_includes(&self, patterns: &[Pattern]) -> bool {
+        if patterns.is_empty() {
+            return true;
+        }
+
         patterns
             .iter()
             .any(|pat| pat.matches_path(&self.path))
@@ -149,6 +153,10 @@ impl PirouetteDirEntry {
 
     #[allow(dead_code)]
     fn glob_excludes(&self, patterns: &[Pattern]) -> bool {
+        if patterns.is_empty() {
+            return true;
+        }
+
         // NOT .any() == none
         !patterns
             .iter()
@@ -174,7 +182,7 @@ mod tests {
     }
 
     #[test]
-    fn test_glob_filters() {
+    fn test_glob_with_filters() {
         let test_data = create_test_entries(vec!["a/foo", "b/bar", "c", "d/baz"]).into_iter();
 
         let include_patterns = vec![
@@ -191,6 +199,27 @@ mod tests {
         let expected_data: Vec<PirouetteDirEntry> = create_test_entries(vec!["a/foo", "c"])
             .into_iter()
             .collect();
+
+        let result_data: Vec<PirouetteDirEntry> = test_data
+            .filter(|entry| entry.glob_includes(&include_patterns))
+            .filter(|entry| entry.glob_excludes(&exclude_patterns))
+            .collect();
+
+        assert_eq!(result_data, expected_data);
+    }
+
+    #[test]
+    fn test_glob_empty_filters() {
+        let test_data = create_test_entries(vec!["a/foo", "b/bar", "c", "d/baz"]).into_iter();
+
+        let include_patterns = vec![];
+
+        let exclude_patterns: Vec<Pattern> = vec![];
+
+        let expected_data: Vec<PirouetteDirEntry> =
+            create_test_entries(vec!["a/foo", "b/bar", "c", "d/baz"])
+                .into_iter()
+                .collect();
 
         let result_data: Vec<PirouetteDirEntry> = test_data
             .filter(|entry| entry.glob_includes(&include_patterns))
