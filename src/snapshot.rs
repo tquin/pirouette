@@ -1,7 +1,10 @@
 use anyhow::{Context, Result};
+use glob::Pattern;
 use std::fs;
 use std::path::PathBuf;
+use walkdir::WalkDir;
 
+use crate::PirouetteDirEntry;
 use crate::PirouetteRetentionTarget;
 use crate::configuration::Config;
 use crate::configuration::ConfigOptsOutputFormat;
@@ -116,4 +119,84 @@ fn copy_snapshot_to_tarball(config: &Config, snapshot_path: &PathBuf) -> Result<
         .with_context(|| format!("failed to close tarball {snapshot_path:?}"))?;
 
     Ok(())
+}
+
+#[allow(dead_code)]
+fn get_source_contents_iter(source_path: &PathBuf) -> impl Iterator<Item = PirouetteDirEntry> {
+    WalkDir::new(source_path)
+        .into_iter()
+        .filter_map(|result| match result {
+            Ok(entry) => Some(entry),
+            Err(e) => {
+                log::warn!("Error reading some source contents: {e}");
+                None
+            }
+        })
+        .filter(|entry| {
+            let ft = entry.file_type();
+            ft.is_file() || ft.is_symlink()
+        })
+        .map(|x| x.into())
+}
+
+impl PirouetteDirEntry {
+    #[allow(dead_code)]
+    fn glob_includes(&self, patterns: &[Pattern]) -> bool {
+        patterns
+            .iter()
+            .any(|pat| pat.matches_path(&self.path))
+    }
+
+    #[allow(dead_code)]
+    fn glob_excludes(&self, patterns: &[Pattern]) -> bool {
+        // NOT .any() == none
+        !patterns
+            .iter()
+            .any(|pat| pat.matches_path(&self.path))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::PirouetteDirEntry;
+    use std::time::SystemTime;
+
+    fn create_test_entries(paths: Vec<&str>) -> Vec<PirouetteDirEntry> {
+        let mut entries = vec![];
+        for path in paths {
+            entries.push(PirouetteDirEntry {
+                path: PathBuf::from(path),
+                timestamp: SystemTime::UNIX_EPOCH,
+            });
+        }
+        entries
+    }
+
+    #[test]
+    fn test_glob_filters() {
+        let test_data = create_test_entries(vec!["a/foo", "b/bar", "c", "d/baz"]).into_iter();
+
+        let include_patterns = vec![
+            glob::Pattern::new("a/*").unwrap(),
+            glob::Pattern::new("b/*").unwrap(),
+            glob::Pattern::new("c").unwrap(),
+        ];
+
+        let exclude_patterns: Vec<Pattern> = vec![
+            glob::Pattern::new("b/*").unwrap(),
+            glob::Pattern::new("d/*").unwrap(),
+        ];
+
+        let expected_data: Vec<PirouetteDirEntry> = create_test_entries(vec!["a/foo", "c"])
+            .into_iter()
+            .collect();
+
+        let result_data: Vec<PirouetteDirEntry> = test_data
+            .filter(|entry| entry.glob_includes(&include_patterns))
+            .filter(|entry| entry.glob_excludes(&exclude_patterns))
+            .collect();
+
+        assert_eq!(result_data, expected_data);
+    }
 }

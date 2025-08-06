@@ -713,6 +713,7 @@ dependencies = [
  "chrono",
  "env_logger",
  "flate2",
+ "glob",
  "in-container",
  "log",
  "rand 0.9.1",
@@ -721,6 +722,7 @@ dependencies = [
  "temp-env",
  "toml",
  "uu_cp",
+ "walkdir",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use std::fmt;
-use std::fs::DirEntry;
+use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -89,23 +89,40 @@ pub struct PirouetteDirEntry {
     pub timestamp: SystemTime,
 }
 
-impl From<DirEntry> for PirouetteDirEntry {
-    fn from(entry: DirEntry) -> Self {
+impl From<fs::DirEntry> for PirouetteDirEntry {
+    fn from(entry: fs::DirEntry) -> Self {
         PirouetteDirEntry {
             path: entry.path(),
-            timestamp: match entry.metadata() {
-                Ok(entry_metadata) => match entry_metadata.modified() {
-                    Ok(time) => time,
-                    Err(e) => {
-                        log::warn!("Failed to read snapshot time: {e}");
-                        SystemTime::UNIX_EPOCH
-                    }
-                },
-                Err(e) => {
-                    log::warn!("Failed to read snapshot time: {e}");
-                    SystemTime::UNIX_EPOCH
-                }
-            },
+            timestamp: parse_dir_entry_time(entry.metadata()),
+        }
+    }
+}
+
+impl From<walkdir::DirEntry> for PirouetteDirEntry {
+    fn from(entry: walkdir::DirEntry) -> Self {
+        PirouetteDirEntry {
+            path: entry.path().to_path_buf(),
+            timestamp: parse_dir_entry_time(entry.metadata()),
+        }
+    }
+}
+
+fn parse_dir_entry_time<E>(entry_metadata: Result<fs::Metadata, E>) -> SystemTime
+where
+    // either a std::io::Error or a walkdir::Error
+    E: std::error::Error + std::fmt::Display,
+{
+    match entry_metadata {
+        Ok(entry_metadata) => match entry_metadata.modified() {
+            Ok(time) => time,
+            Err(e) => {
+                log::warn!("Failed to read entry time: {e}");
+                SystemTime::UNIX_EPOCH
+            }
+        },
+        Err(e) => {
+            log::warn!("Failed to read entry time: {e}");
+            SystemTime::UNIX_EPOCH
         }
     }
 }
