@@ -31,7 +31,11 @@ Alternatively, if you can't run a container, pirouette is also available as a bi
 
 ## Configuration
 
-Configuration for pirouette is done through a `pirouette.toml` file. By default, pirouette will look for this in the current working directory, or `/config` for a container. You can override this by specifying a full path in the environment variable `PIROUETTE_CONFIG_FILE`.
+All configuration for pirouette is done through a `pirouette.toml` file. Pirouette will look for this file in this order:
+
+- Value from `PIROUETTE_CONFIG_FILE` environment variable, if set
+- If running in a container: `/config/pirouette.toml`
+- Otherwise: `${CWD}/pirouette.toml`
 
 ### Source
 
@@ -55,25 +59,29 @@ If the `target.path` doesn't already exist, pirouette will try to create it for 
 
 ### Retention
 
-This section defines how many copies of the source data pirouette should keep at different age intervals. While each key is optional and can be excluded, at least one key in total must be provided.
+This section defines how many copies of the source data pirouette should keep at different age intervals. While each individual key is optional and can be excluded, at least one of the keys must be provided.
 
 | Key      | Required | Value                                   |
 | -------- | -------- | --------------------------------------- |
-| `hours`  | No       | An integer number of snapshots to keep. |
-| `days`   | No       | An integer number of snapshots to keep. |
-| `weeks`  | No       | An integer number of snapshots to keep. |
-| `months` | No       | An integer number of snapshots to keep. |
-| `years`  | No       | An integer number of snapshots to keep. |
+| `hours`  | No\*     | An integer number of snapshots to keep. |
+| `days`   | No\*     | An integer number of snapshots to keep. |
+| `weeks`  | No\*     | An integer number of snapshots to keep. |
+| `months` | No\*     | An integer number of snapshots to keep. |
+| `years`  | No\*     | An integer number of snapshots to keep. |
+
+\*_At least one key must be provided_
 
 ### Options
 
 All options listed below are optional, and if excluded will have a default value.
 
-| Key             | Value                                             | Default     | Notes                                                                                             |
-| --------------- | ------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------- |
-| `output_format` | `directory`<br>`tarball`                          | `directory` | Determines whether snapshots retain their structure, or are compressed into a single `.tgz` file. |
-| `log_level`     | `error`<br>`warn`<br>`info`<br>`debug`<br>`trace` | `warn`      | Set the logging level.                                                                            |
-| `dry_run`       | `true`<br>`false`                                 | `false`     | Determines if file system changes can occur. If `true`, will generate `DEBUG`-level logs instead. |
+| Key             | Value                                                 | Default     | Notes                                                                                              |
+| --------------- | ----------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------- |
+| `output_format` | `directory`<br>`tarball`                              | `directory` | Determines whether snapshots retain their structure, or are compressed into a single `.tgz` file.  |
+| `log_level`     | `error`<br>`warn`<br>`info`<br>`debug`<br>`trace`     | `warn`      | Set the logging level.                                                                             |
+| `dry_run`       | `true`<br>`false`                                     | `false`     | Determines if file system changes can occur. If `true`, will generate `DEBUG`-level logs instead.  |
+| `include`       | List of glob patterns, eg: `["apple/**/*", "banana"]` | `[]` (None) | Only files in the `source` which match at least one of the `include` patterns will be snapshotted. |
+| `exclude`       | List of glob patterns, eg: `["apple/**/*", "banana"]` | `[]` (None) | Only files in the `source` which match none of the `exclude` patterns will be snapshotted.         |
 
 ### Example
 
@@ -105,6 +113,5 @@ You can test changes in a Docker container:
 ## Todo
 
 - src: deep copy? shallow? latest file only?
-- glob include/exclude patterns would be nice at some point too.
 - custom-defined retention periods would be nice
 - one-shot or background daemon mode?
