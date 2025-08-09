@@ -22,7 +22,6 @@ serde = { version = "1.0.218", features = ["derive"] }
 tar = "0.4.44"
 temp-env = "0.3.6"
 toml = "0.8.20"
-uu_cp = "0.0.30"
 walkdir = "2.5.0"
 
 [build]

@@ -28,7 +28,9 @@ pub fn copy_snapshot(config: &Config, retention_target: &PirouetteRetentionTarge
         format!("snapshot will not be created"),
         {
             match snapshot_output_format {
-                ConfigOptsOutputFormat::Directory => copy_snapshot_to_dir(config, &snapshot_path),
+                ConfigOptsOutputFormat::Directory => {
+                    copy_snapshot_to_dir(config, source_contents, &snapshot_path)
+                }
                 ConfigOptsOutputFormat::Tarball => {
                     copy_snapshot_to_tarball(config, source_contents, &snapshot_path)
                 }
@@ -61,36 +63,32 @@ fn format_snapshot_path(
     }
 }
 
-fn copy_snapshot_to_dir(config: &Config, snapshot_path: &PathBuf) -> Result<()> {
-    let options = uu_cp::Options {
-        attributes: uu_cp::Attributes::NONE,
-        attributes_only: false,
-        copy_contents: false,
-        cli_dereference: false,
-        copy_mode: uu_cp::CopyMode::Copy,
-        dereference: true,
-        one_file_system: false,
-        parents: false,
-        update: uu_cp::UpdateMode::ReplaceAll,
-        debug: false,
-        verbose: false,
-        strip_trailing_slashes: false,
-        reflink_mode: uu_cp::ReflinkMode::Auto,
-        sparse_mode: uu_cp::SparseMode::Auto,
-        backup: uu_cp::BackupMode::NoBackup,
-        backup_suffix: "~".to_owned(),
-        no_target_dir: false,
-        overwrite: uu_cp::OverwriteMode::Clobber(uu_cp::ClobberMode::Standard),
-        recursive: true,
-        target_dir: None,
-        progress_bar: false,
-    };
-
+fn copy_snapshot_to_dir<I>(
+    config: &Config,
+    source_contents: I,
+    snapshot_path: &PathBuf,
+) -> Result<()>
+where
+    I: Iterator<Item = PirouetteDirEntry>,
+{
     fs::create_dir_all(snapshot_path)
         .with_context(|| format!("failed to create directory {snapshot_path:?}"))?;
 
-    uu_cp::copy(&[config.source.path.clone()], snapshot_path, &options)
-        .with_context(|| format!("failed to copy directory {:?}", config.source.path))?;
+    for entry in source_contents {
+        let inner_entry_path = format_inner_entry_path(config, &entry);
+        let target_entry_path: PathBuf = [snapshot_path, &inner_entry_path]
+            .iter()
+            .collect();
+        log::debug!("Copying {:?} to {target_entry_path:?}", entry.path);
+
+        if let Some(parent) = target_entry_path.parent() {
+            fs::create_dir_all(parent)
+                .with_context(|| format!("failed to create directory {parent:?}"))?;
+        }
+
+        fs::copy(&entry.path, &target_entry_path)
+            .with_context(|| format!("failed to copy file {:?}", &entry.path))?;
+    }
 
     Ok(())
 }
@@ -111,15 +109,14 @@ where
     let mut snapshot_archive = tar::Builder::new(snapshot_writer);
 
     for entry in source_contents {
-        log::debug!("Copying {:?} to tarball", &entry.path);
+        let inner_entry_path = format_inner_entry_path(config, &entry);
+        log::debug!("Copying {:?} to {inner_entry_path:?}", entry.path);
 
         let mut f = fs::File::open(&entry.path)
             .with_context(|| format!("Failed to read file {:?}", &entry.path))?;
 
-        let tarball_entry_path = format_tarball_entry_path(config, &entry);
-
         snapshot_archive
-            .append_file(tarball_entry_path, &mut f)
+            .append_file(inner_entry_path, &mut f)
             .with_context(|| format!("Failed to write tarball {snapshot_path:?}"))?;
     }
 
@@ -131,7 +128,7 @@ where
 }
 
 // For some entry "/path/to/source/foo/bar.txt", return the inner path "source/foo/bar.txt"
-fn format_tarball_entry_path(config: &Config, entry: &PirouetteDirEntry) -> PathBuf {
+fn format_inner_entry_path(config: &Config, entry: &PirouetteDirEntry) -> PathBuf {
     let prefix: PathBuf = match config.source.path.parent() {
         Some(prefix) => prefix.into(),
         None => config.source.path.clone(),
