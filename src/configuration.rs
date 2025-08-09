@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use glob::Pattern;
 use log::LevelFilter;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
@@ -36,6 +37,16 @@ pub struct ConfigOpts {
         deserialize_with = "deserialize_opts_dry_run"
     )]
     pub dry_run: bool,
+    #[serde(
+        default = "default_opts_patterns",
+        deserialize_with = "deserialize_opts_patterns"
+    )]
+    pub include: Vec<Pattern>,
+    #[serde(
+        default = "default_opts_patterns",
+        deserialize_with = "deserialize_opts_patterns"
+    )]
+    pub exclude: Vec<Pattern>,
 }
 
 #[derive(Debug, Deserialize, Clone, PartialEq)]
@@ -72,6 +83,8 @@ fn default_opts() -> ConfigOpts {
         output_format: default_opts_output_format(),
         log_level: default_opts_log_level(),
         dry_run: default_opts_dry_run(),
+        include: default_opts_patterns(),
+        exclude: default_opts_patterns(),
     }
 }
 
@@ -115,6 +128,25 @@ where
         _ => default_opts_dry_run(),
     };
     Ok(result)
+}
+
+fn default_opts_patterns() -> Vec<Pattern> {
+    vec![]
+}
+
+fn deserialize_opts_patterns<'de, D>(deserializer: D) -> Result<Vec<Pattern>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let patterns: Vec<String> = Vec::deserialize(deserializer)?;
+    patterns
+        .into_iter()
+        .map(|s| {
+            Pattern::new(&s)
+                // If glob threw any errors, coerce them to a serde error type
+                .map_err(serde::de::Error::custom)
+        })
+        .collect()
 }
 
 /*
