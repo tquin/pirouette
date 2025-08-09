@@ -90,10 +90,10 @@ fn delete_snapshots(expired_snapshots: Vec<PirouetteDirEntry>) {
             if let Err(err) = fs::remove_dir_all(&snapshot.path) {
                 log::error!("{err}");
             }
-        } else if snapshot.path.is_file() {
-            if let Err(err) = fs::remove_file(&snapshot.path) {
-                log::error!("{err}");
-            }
+        } else if snapshot.path.is_file()
+            && let Err(err) = fs::remove_file(&snapshot.path)
+        {
+            log::error!("{err}");
         }
     }
 }
