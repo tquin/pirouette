@@ -86,6 +86,7 @@ fn get_newest_directory_entry(
         "{retention_target} contains {} existing entries",
         typed_entries.len()
     );
+    log::debug!("{retention_target} contents: {typed_entries:?}");
 
     // Return the newest item in the directory
     typed_entries

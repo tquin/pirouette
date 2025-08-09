@@ -75,13 +75,13 @@ This section defines how many copies of the source data pirouette should keep at
 
 All options listed below are optional, and if excluded will have a default value.
 
-| Key             | Value                                                 | Default     | Notes                                                                                              |
-| --------------- | ----------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------- |
-| `output_format` | `directory`<br>`tarball`                              | `directory` | Determines whether snapshots retain their structure, or are compressed into a single `.tgz` file.  |
-| `log_level`     | `error`<br>`warn`<br>`info`<br>`debug`<br>`trace`     | `warn`      | Set the logging level.                                                                             |
-| `dry_run`       | `true`<br>`false`                                     | `false`     | Determines if file system changes can occur. If `true`, will generate `DEBUG`-level logs instead.  |
-| `include`       | List of glob patterns, eg: `["apple/**/*", "banana"]` | `[]` (None) | Only files in the `source` which match at least one of the `include` patterns will be snapshotted. |
-| `exclude`       | List of glob patterns, eg: `["apple/**/*", "banana"]` | `[]` (None) | Only files in the `source` which match none of the `exclude` patterns will be snapshotted.         |
+| Key             | Value                                                              | Default     | Notes                                                                                              |
+| --------------- | ------------------------------------------------------------------ | ----------- | -------------------------------------------------------------------------------------------------- |
+| `output_format` | `directory`<br>`tarball`                                           | `directory` | Determines whether snapshots retain their structure, or are compressed into a single `.tgz` file.  |
+| `log_level`     | `error`<br>`warn`<br>`info`<br>`debug`<br>`trace`                  | `warn`      | Set the logging level.                                                                             |
+| `dry_run`       | `true`<br>`false`                                                  | `false`     | Determines if file system changes can occur. If `true`, will generate `DEBUG`-level logs instead.  |
+| `include`       | List of glob patterns, eg: `["/source/foo.txt", "/source/foo/**"]` | `[]` (None) | Only files in the `source` which match at least one of the `include` patterns will be snapshotted. |
+| `exclude`       | List of glob patterns, eg: `["/source/foo/**/badfile"]`            | `[]` (None) | Only files in the `source` which match none of the `exclude` patterns will be snapshotted.         |
 
 ### Example
 

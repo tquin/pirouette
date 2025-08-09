@@ -19,13 +19,19 @@ pub fn copy_snapshot(config: &Config, retention_target: &PirouetteRetentionTarge
         retention_target.period
     );
 
+    let source_contents = get_source_contents_iter(&config.source.path)
+        .filter(|entry| entry.glob_includes(&config.options.include))
+        .filter(|entry| entry.glob_excludes(&config.options.exclude));
+
     dry_run!(
         config.options.dry_run,
         format!("snapshot will not be created"),
         {
             match snapshot_output_format {
                 ConfigOptsOutputFormat::Directory => copy_snapshot_to_dir(config, &snapshot_path),
-                ConfigOptsOutputFormat::Tarball => copy_snapshot_to_tarball(config, &snapshot_path),
+                ConfigOptsOutputFormat::Tarball => {
+                    copy_snapshot_to_tarball(config, source_contents, &snapshot_path)
+                }
             }
         }
     )
@@ -89,7 +95,14 @@ fn copy_snapshot_to_dir(config: &Config, snapshot_path: &PathBuf) -> Result<()> 
     Ok(())
 }
 
-fn copy_snapshot_to_tarball(config: &Config, snapshot_path: &PathBuf) -> Result<()> {
+fn copy_snapshot_to_tarball<I>(
+    config: &Config,
+    source_contents: I,
+    snapshot_path: &PathBuf,
+) -> Result<()>
+where
+    I: Iterator<Item = PirouetteDirEntry>,
+{
     let snapshot_file = fs::File::create(snapshot_path)
         .with_context(|| format!("failed to create tarball {snapshot_path:?}"))?;
 
@@ -97,21 +110,17 @@ fn copy_snapshot_to_tarball(config: &Config, snapshot_path: &PathBuf) -> Result<
         flate2::write::GzEncoder::new(&snapshot_file, flate2::Compression::best());
     let mut snapshot_archive = tar::Builder::new(snapshot_writer);
 
-    match &config.source.path.is_dir() {
-        // Recursive copy directory contents to root of tar file
-        true => snapshot_archive
-            .append_dir_all(".", &config.source.path)
-            .with_context(|| format!("Failed to write tarball {snapshot_path:?}"))?,
+    for entry in source_contents {
+        log::debug!("Copying {:?} to tarball", &entry.path);
 
-        // Write file contents into archive
-        false => {
-            let mut f = fs::File::open(&config.source.path)
-                .with_context(|| format!("Failed to read file {:?}", &config.source.path))?;
+        let mut f = fs::File::open(&entry.path)
+            .with_context(|| format!("Failed to read file {:?}", &entry.path))?;
 
-            snapshot_archive
-                .append_file(config.source.path.file_name().unwrap(), &mut f)
-                .with_context(|| format!("Failed to write tarball {snapshot_path:?}"))?;
-        }
+        let tarball_entry_path = format_tarball_entry_path(config, &entry);
+
+        snapshot_archive
+            .append_file(tarball_entry_path, &mut f)
+            .with_context(|| format!("Failed to write tarball {snapshot_path:?}"))?;
     }
 
     snapshot_archive
@@ -121,7 +130,15 @@ fn copy_snapshot_to_tarball(config: &Config, snapshot_path: &PathBuf) -> Result<
     Ok(())
 }
 
-#[allow(dead_code)]
+// For some entry "/path/to/source/foo/bar.txt", return the inner path "source/foo/bar.txt"
+fn format_tarball_entry_path(config: &Config, entry: &PirouetteDirEntry) -> PathBuf {
+    let prefix: PathBuf = match config.source.path.parent() {
+        Some(prefix) => prefix.into(),
+        None => config.source.path.clone(),
+    };
+    entry.path.strip_prefix(prefix).unwrap().into()
+}
+
 fn get_source_contents_iter(source_path: &PathBuf) -> impl Iterator<Item = PirouetteDirEntry> {
     WalkDir::new(source_path)
         .into_iter()
@@ -140,7 +157,6 @@ fn get_source_contents_iter(source_path: &PathBuf) -> impl Iterator<Item = Pirou
 }
 
 impl PirouetteDirEntry {
-    #[allow(dead_code)]
     fn glob_includes(&self, patterns: &[Pattern]) -> bool {
         if patterns.is_empty() {
             return true;
@@ -151,7 +167,6 @@ impl PirouetteDirEntry {
             .any(|pat| pat.matches_path(&self.path))
     }
 
-    #[allow(dead_code)]
     fn glob_excludes(&self, patterns: &[Pattern]) -> bool {
         if patterns.is_empty() {
             return true;
