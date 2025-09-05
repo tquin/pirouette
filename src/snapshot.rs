@@ -20,8 +20,18 @@ pub fn copy_snapshot(config: &Config, retention_target: &PirouetteRetentionTarge
     );
 
     let source_contents = get_source_contents_iter(&config.source.path)
-        .filter(|entry| entry.glob_includes(&config.options.include))
-        .filter(|entry| entry.glob_excludes(&config.options.exclude));
+        .filter(|entry| {
+            glob_includes(
+                &format_inner_entry_path(config, entry),
+                &config.options.include,
+            )
+        })
+        .filter(|entry| {
+            glob_excludes(
+                &format_inner_entry_path(config, entry),
+                &config.options.exclude,
+            )
+        });
 
     dry_run!(
         config.options.dry_run,
@@ -127,13 +137,13 @@ where
     Ok(())
 }
 
-// For some entry "/path/to/source/foo/bar.txt", return the inner path "source/foo/bar.txt"
 fn format_inner_entry_path(config: &Config, entry: &PirouetteDirEntry) -> PathBuf {
-    let prefix: PathBuf = match config.source.path.parent() {
-        Some(prefix) => prefix.into(),
-        None => config.source.path.clone(),
-    };
-    entry.path.strip_prefix(prefix).unwrap().into()
+    // For some entry "/path/to/source/foo/bar.txt", return the inner path "foo/bar.txt"
+    entry
+        .path
+        .strip_prefix(&config.source.path)
+        .unwrap()
+        .into()
 }
 
 fn get_source_contents_iter(source_path: &PathBuf) -> impl Iterator<Item = PirouetteDirEntry> {
@@ -153,27 +163,27 @@ fn get_source_contents_iter(source_path: &PathBuf) -> impl Iterator<Item = Pirou
         .map(|x| x.into())
 }
 
-impl PirouetteDirEntry {
-    fn glob_includes(&self, patterns: &[Pattern]) -> bool {
-        if patterns.is_empty() {
-            return true;
-        }
+fn glob_includes(path: &PathBuf, patterns: &[Pattern]) -> bool {
+    let result = match patterns.is_empty() {
+        true => true,
+        false => patterns.iter().any(|pat| pat.matches_path(path)),
+    };
 
-        patterns
-            .iter()
-            .any(|pat| pat.matches_path(&self.path))
-    }
+    log::debug!("Testing if {path:?} include-matches {patterns:?}: result={result}");
 
-    fn glob_excludes(&self, patterns: &[Pattern]) -> bool {
-        if patterns.is_empty() {
-            return true;
-        }
+    result
+}
 
+fn glob_excludes(path: &PathBuf, patterns: &[Pattern]) -> bool {
+    let result = match patterns.is_empty() {
+        true => true,
         // NOT .any() == none
-        !patterns
-            .iter()
-            .any(|pat| pat.matches_path(&self.path))
-    }
+        false => !patterns.iter().any(|pat| pat.matches_path(path)),
+    };
+
+    log::debug!("Testing if {path:?} exclude-matches {patterns:?}: result={result}");
+
+    result
 }
 
 #[cfg(test)]
@@ -213,8 +223,8 @@ mod tests {
             .collect();
 
         let result_data: Vec<PirouetteDirEntry> = test_data
-            .filter(|entry| entry.glob_includes(&include_patterns))
-            .filter(|entry| entry.glob_excludes(&exclude_patterns))
+            .filter(|entry| glob_includes(&entry.path, &include_patterns))
+            .filter(|entry| glob_excludes(&entry.path, &exclude_patterns))
             .collect();
 
         assert_eq!(result_data, expected_data);
@@ -234,8 +244,8 @@ mod tests {
                 .collect();
 
         let result_data: Vec<PirouetteDirEntry> = test_data
-            .filter(|entry| entry.glob_includes(&include_patterns))
-            .filter(|entry| entry.glob_excludes(&exclude_patterns))
+            .filter(|entry| glob_includes(&entry.path, &include_patterns))
+            .filter(|entry| glob_excludes(&entry.path, &exclude_patterns))
             .collect();
 
         assert_eq!(result_data, expected_data);

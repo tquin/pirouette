@@ -12,4 +12,3 @@ weeks = 4
 
 [options]
 output_format = "tarball"
-log_level = "info"
